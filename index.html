@@ -141,6 +141,20 @@ main{max-width:1080px;margin:0 auto;padding:20px 20px calc(48px + env(safe-area-
 :root[data-theme=dark] .theme button.on{background-color:#636366;box-shadow:none}
 .theme button:not(.on):hover{color:var(--label)}
 
+/* ─────────────────── 群組複選 chips ─────────────────── */
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{
+  display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;
+  font-size:.8125rem;font-weight:500;color:var(--label-2);
+  background-color:var(--surface-2);border:.5px solid transparent;cursor:pointer;
+  transition:background-color .16s,color .16s;user-select:none;min-height:34px;
+}
+@media (prefers-color-scheme:light){:root:not([data-theme=dark]) .chip{background-color:rgba(118,118,128,.1)}}
+:root[data-theme=light] .chip{background-color:rgba(118,118,128,.1)}
+.chip.on{background-color:var(--blue-tint);color:var(--blue);font-weight:590}
+.chip.on::before{content:"✓";font-size:.75rem}
+.chip:active{transform:scale(.97)}
+
 /* ─────────────────── grouped list ─────────────────── */
 .gtitle{
   font-size:.8125rem;font-weight:600;letter-spacing:.02em;color:var(--label-2);
@@ -616,7 +630,8 @@ async function loadDevices(){
 async function loadSettings(){
   try{
     const j = await api('fleet-console', {action:'overview', token:state.token});
-    const gid = j.fleet?.line_group_id || '';
+    const rid = j.groups?.[0]?.line_group_id || '';
+
     const list = (j.merchants||[]).map(m=>`<div class="row" style="flex-wrap:wrap;gap:10px">
         <div class="row-main" style="flex-basis:100%">
           <div class="row-t" style="font-weight:590;display:flex;align-items:center;gap:8px">${esc(m.name)}
@@ -633,47 +648,45 @@ async function loadSettings(){
         </div></div>`).join('');
 
     $('#view').innerHTML = `<div class="view">
-      <div class="gtitle">LINE 車板群組<span class="aside">派單訊息會發到這個群</span></div>
+      <div class="gtitle">派單接收人<span class="aside">店家叫車時,訊息會發給這裡</span></div>
       <div class="group">
         <div class="row" style="flex-wrap:wrap;gap:10px">
           <div class="row-main" style="min-width:150px">
-            <div class="row-t">${gid ? '已綁定' : '尚未綁定'}</div>
-            <div class="row-s" id="gStatus">${gid ? '店家按叫車時,派單會發到這個群組' : '綁定前,店家按叫車會送不出去'}</div>
+            <div class="row-t">${rid ? '已設定' : '尚未設定'}</div>
+            <div class="row-s" id="rStatus">${rid ? '派單會發到這個接收人' : '設定前,店家按叫車會送不出去'}</div>
           </div>
-          <input class="field" id="fgid" value="${esc(gid)}" placeholder="C 開頭的群組 ID"
-            style="max-width:340px;font-family:ui-monospace,monospace;font-size:.875rem" aria-label="LINE 群組 ID" spellcheck="false">
-          <div class="row-actions"><button class="btn tinted" id="fgSave">儲存</button></div>
+          <input class="field" id="rid" value="${esc(rid)}" placeholder="接收人 ID" spellcheck="false"
+            style="max-width:340px;font-family:ui-monospace,monospace;font-size:.875rem" aria-label="接收人 ID">
+          <div class="row-actions"><button class="btn tinted" id="rSave">儲存</button></div>
         </div>
         <div class="row" style="align-items:flex-start">
           <div class="row-main">
-            <div class="row-t">怎麼拿到群組 ID?</div>
+            <div class="row-t">怎麼拿到接收人 ID?</div>
             <div class="row-s" style="line-height:1.7">
-              1. 把「TripStore 店家派單」加為好友,再邀請進你們的車板群組<br>
-              2. 在群組裡輸入 <b>/id</b><br>
-              3. bot 會回一組 C 開頭的 ID,貼到上面欄位按儲存
+              <b>車板群組</b>:把「TripStore 店家派單」加為好友 → 邀請進群 → 群裡輸入 <b>/id</b> → 複製 bot 回的 C 開頭 ID<br>
+              <b>個人接收</b>:和 bot 的 1:1 聊天輸入 <b>/id</b> → 複製 U 開頭 ID
             </div></div></div>
       </div>
       <div class="gtitle">店家<span class="aside">結算時間為該店營業日切點</span></div>
       <div class="group">${list || '<p class="empty">還沒有店家。請聯絡我們開通。</p>'}</div></div>`;
 
-    $('#fgSave').onclick = saveLineGroup;
+    $('#rSave').onclick = saveRecipient;
     document.querySelectorAll('[data-save]').forEach(b=>b.onclick=()=>saveMerchant(b.dataset.save,b));
     document.querySelectorAll('[data-toggle]').forEach(b=>b.onclick=()=>toggleMerchant(b.dataset.toggle,b.dataset.to==='true'));
   }catch(e){ fail(e); }
 }
-async function saveLineGroup(){
-  const btn = $('#fgSave'), val = $('#fgid').value.trim();
+async function saveRecipient(){
+  const btn = $('#rSave');
   btn.disabled = true; btn.textContent = '儲存中…';
   try{
-    await api('fleet-console', {action:'update_line_group', token:state.token, groupId:val});
+    await api('fleet-console', {action:'set_recipient', token:state.token, recipientId:$('#rid').value.trim()});
     btn.textContent = '已儲存'; setTimeout(loadSettings, 700);
   }catch(e){
     btn.disabled = false; btn.textContent = '儲存';
-    const msg = e.message === 'BAD_FORMAT' ? '格式不對。群組 ID 是 C 開頭的 33 碼,請直接複製 bot 回覆的那一串。'
-      : e.message === 'ALREADY_BOUND' ? '這個群組已經綁給別的車隊了。請確認是不是複製到別的群。'
+    $('#rStatus').textContent = e.message === 'BAD_FORMAT' ? '格式不對。ID 是 C 或 U 開頭的 33 碼,請直接複製 bot 回覆的那一串。'
+      : e.message === 'ALREADY_BOUND' ? '這個接收人已經綁給別的車隊了。'
       : '儲存失敗:' + e.message;
-    $('#gStatus').textContent = msg;
-    $('#gStatus').style.color = 'var(--red)';
+    $('#rStatus').style.color = 'var(--red)';
   }
 }
 async function saveMerchant(id, btn){
@@ -682,12 +695,12 @@ async function saveMerchant(id, btn){
     await api('fleet-console', {action:'update_merchant', token:state.token, merchantId:id, fields:{
       name:$('#mn-'+id).value, pickup_address:$('#ma-'+id).value,
       support_phone:$('#mp-'+id).value, settlement_time:$('#ms-'+id).value }});
-    btn.textContent = '已儲存'; setTimeout(loadMerchants, 700);
+    btn.textContent = '已儲存'; setTimeout(loadSettings, 700);
   }catch(e){ btn.disabled=false; btn.textContent=t; alert('儲存失敗:'+e.message); }
 }
 async function toggleMerchant(id, enabled){
   if (!enabled && !confirm('停用這家店?該店平板會立刻無法叫車。')) return;
-  try{ await api('fleet-console', {action:'update_merchant', token:state.token, merchantId:id, fields:{enabled}}); loadMerchants(); }
+  try{ await api('fleet-console', {action:'update_merchant', token:state.token, merchantId:id, fields:{enabled}}); loadSettings(); }
   catch(e){ alert('失敗:'+e.message); }
 }
 function fail(e){ if(e.message!=='登入逾期') $('#view').innerHTML = `<div class="group"><p class="empty">載入失敗:${esc(e.message)}</p></div>`; }
@@ -733,12 +746,10 @@ async function loadAdmin(){
             <button class="btn ${f.enabled?'danger':'plain'}" data-ft="${f.id}" data-to="${!f.enabled}">${f.enabled?'停用':'啟用'}</button>
           </div></div>
         <div class="group">
-          <div class="row" style="flex-wrap:wrap;gap:10px">
-            <div class="row-main" style="min-width:150px"><div class="row-t">LINE 車板群組</div>
-              <div class="row-s">${f.line_group_id ? '已綁定' : '未綁定'}・車隊可自行在後台綁,這裡是代為協助用</div></div>
-            <input class="field" id="fg-${f.id}" value="${esc(f.line_group_id||'')}" placeholder="C…" aria-label="LINE 群組 ID"
-              style="max-width:300px;font-family:ui-monospace,monospace;font-size:.8125rem" spellcheck="false">
-            <button class="btn tinted" data-fg="${f.id}">存</button>
+          <div class="row">
+            <div class="row-main"><div class="row-t">LINE 車板群組</div>
+              <div class="row-s">由車隊後台自行設定</div></div>
+            <div class="row-v">${(adminData?.groups||[]).filter(g=>g.fleet_id===f.id).map(g=>esc(g.name)).join('、') || '尚未設定'}</div>
           </div>
           <div class="row"><div class="row-main"><div class="row-t">客服電話</div></div>
             <div class="row-v">${esc(f.support_phone||'—')}</div></div>
@@ -761,7 +772,7 @@ async function loadAdmin(){
           <input class="field" id="nf-name" placeholder="車隊名稱">
           <input class="field" id="nf-phone" placeholder="客服電話">
           <div class="full"><button class="btn filled" id="nf-go">建立車隊</button>
-            <p class="row-s" style="margin-top:10px">建好後把 bot 拉進車隊群、在群裡打 <b>/id</b>,再把群組 ID 貼進上方欄位。</p></div>
+            <p class="row-s" style="margin-top:10px">建好後按「發車隊金鑰」給車隊,車隊登入後台即可自行綁定 LINE 群組。</p></div>
         </div></details></div></div>`;
     bindAdmin();
   }catch(e){ if(e.message!=='登入逾期') $('#view').innerHTML = `<div class="group"><p class="empty">載入失敗:${esc(e.message)}</p></div>`; }
@@ -773,7 +784,6 @@ function bindAdmin(){
   q('[data-pin]', b => issuePin(b.dataset.pin, b.dataset.n));
   q('[data-ft]', b => toggleFleet(b.dataset.ft, b.dataset.to==='true'));
   q('[data-mt]', b => adminToggleMerchant(b.dataset.mt, b.dataset.to==='true'));
-  q('[data-fg]', b => saveFleetGroup(b.dataset.fg));
   q('[data-nm]', b => createMerchant(b.dataset.nm));
   const nf = $('#nf-go'); if (nf) nf.onclick = createFleet;
 }
@@ -803,10 +813,6 @@ async function toggleFleet(id, enabled){
 async function adminToggleMerchant(id, enabled){
   if (!enabled && !confirm('停用這家店?該店平板會立刻無法叫車。')) return;
   await adminApi({action:'update_merchant', merchantId:id, fields:{enabled}}); loadAdmin();
-}
-async function saveFleetGroup(id){
-  try{ await adminApi({action:'update_fleet', fleetId:id, fields:{line_group_id:$('#fg-'+id).value}}); loadAdmin(); }
-  catch(e){ alert('儲存失敗:'+e.message); }
 }
 async function createFleet(){
   try{
