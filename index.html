@@ -2,57 +2,300 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <title>TripStore 後台</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23007AFF'/><g fill='%23fff'><rect x='30' y='34' width='40' height='20' rx='8'/><rect x='19' y='45' width='62' height='19' rx='7'/></g><circle cx='34' cy='65' r='6.5' fill='%230A2A5E'/><circle cx='66' cy='65' r='6.5' fill='%230A2A5E'/></svg>">
 <style>
-:root{--bg:#080B10;--card:#11161F;--card2:#161C27;--line:#1F2733;--fg:#F5F7FA;--muted:#9AA4B2;
---blue:#2F7BFF;--purple:#8B5CF6;--danger:#FF5A5F;--ok:#34D399;--warn:#FBBF24;--eta:#7CF2C4}
-*{box-sizing:border-box;margin:0}
-body{background:var(--bg);color:var(--fg);font-family:-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;min-height:100vh}
-.wrap{max-width:1100px;margin:0 auto;padding:20px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
-h1{font-size:22px;margin-bottom:4px}h2{font-size:17px;margin-bottom:12px}
-.muted{color:var(--muted);font-size:14px}
-input,select{background:#0C1017;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:15px;outline:none}
-input:focus{border-color:var(--blue)}
-button{background:var(--blue);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-size:15px;font-weight:700;cursor:pointer}
-button.ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
-button.danger{background:transparent;border:1px solid var(--danger);color:var(--danger)}
-button.small{padding:6px 10px;font-size:13px;font-weight:600}
-table{width:100%;border-collapse:collapse;font-size:14px}
-th{color:var(--muted);text-align:left;font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
-td{padding:8px 10px;border-bottom:1px solid var(--line)}
-tr:last-child td{border-bottom:0}
-.tag{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;border:1px solid var(--line);color:var(--muted)}
-.st-SEARCHING{color:var(--blue)}.st-ASSIGNED{color:var(--ok)}.st-ARRIVED{color:var(--eta)}
-.st-COMPLETED{color:var(--muted)}.st-CANCELLED{color:var(--danger)}.st-NO_CAR{color:var(--warn)}.st-SEND_FAILED{color:var(--danger)}
-.tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
-.tabs button{background:transparent;border:1px solid var(--line);color:var(--muted)}
-.tabs button.on{background:var(--blue);border-color:var(--blue);color:#fff}
-.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px}
-.plate{font-weight:800;font-size:16px;letter-spacing:.5px}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9}
-.modal .card{max-width:420px;text-align:center}
-.keybox{font-size:34px;font-weight:900;letter-spacing:6px;color:var(--eta);margin:14px 0;font-family:ui-monospace,monospace}
-.login{min-height:100vh;display:flex;align-items:center;justify-content:center}
-.login .card{width:min(420px,92vw);padding:32px}
-.err{color:var(--danger);font-size:14px;min-height:1.2em;margin-top:8px}
-.scroll{overflow-x:auto}
-@media(max-width:700px){.wrap{padding:10px}td,th{padding:6px}}
+/* ─────────────────────────── tokens ─────────────────────────── */
+:root{
+  /* 淺色語意色一律加深至 AA(白底 ≥4.5:1、灰底 ≥4.5:1);
+     Apple 原值 #007AFF/#34C759 在白底只有 4.02/3.07,當文字或按鈕底色都不合格 */
+  --bg:#F2F2F7; --surface:#FFF; --surface-2:#F2F2F7; --surface-hover:rgba(0,0,0,.035);
+  --label:#000; --label-2:#5D5D63; --label-3:#68686D;
+  --separator:rgba(60,60,67,.29);
+  /* tinted/danger 按鈕可能落在群組外的灰底上,tint 疊灰底比疊白底更暗 → 取最壞情況仍 ≥4.5 的值 */
+  --blue:#0A5FBF; --blue-fill:#0B63C5; --blue-tint:rgba(10,95,191,.12);
+  --green:#1B7A38; --red:#B01810; --orange:#9A5B00; --teal:#16707F; --purple:#6B34A8;
+  --dot-green:#34C759; --dot-red:#FF3B30; --dot-orange:#FF9500;
+  --red-tint:rgba(176,24,16,.12);
+  --nav-bg:rgba(242,242,247,.82);
+  --shadow:0 1px 3px rgba(0,0,0,.06),0 8px 28px rgba(0,0,0,.08);
+  --r-lg:14px; --r-md:10px; --r-sm:8px;
+  --ease:cubic-bezier(.32,.72,0,1);
+  --z-sheet:50; --z-nav:20;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    /* 深色:文字色需要「亮」,填色底需要「暗」(白字壓在上面),兩者方向相反 → --blue 與 --blue-fill 分開 */
+    --bg:#000; --surface:#1C1C1E; --surface-2:#2C2C2E; --surface-hover:rgba(255,255,255,.06);
+    --label:#FFF; --label-2:#A1A1A8; --label-3:#96969E;
+    --separator:rgba(84,84,88,.6);
+    --blue:#409EFF; --blue-fill:#0C6CD4; --blue-tint:rgba(64,158,255,.12);
+    --green:#30D158; --red:#FF6961; --orange:#FF9F0A; --teal:#40C8E0; --purple:#BF5AF2;
+    --dot-green:#30D158; --dot-red:#FF453A; --dot-orange:#FF9F0A;
+    --red-tint:rgba(255,105,97,.12);
+    --nav-bg:rgba(20,20,22,.78);
+    --shadow:0 1px 3px rgba(0,0,0,.5),0 12px 40px rgba(0,0,0,.55);
+  }
+}
+
+/* ─────────────────────────── base ─────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{
+  background-color:var(--bg); color:var(--label); min-height:100vh;
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI Variable","Segoe UI","PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
+  font-size:16px; line-height:1.45; letter-spacing:-.01em;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,select{font:inherit;color:inherit;letter-spacing:inherit}
+button{background:none;border:0;cursor:pointer}
+:focus-visible{outline:2.5px solid var(--blue);outline-offset:2px;border-radius:4px}
+.num{font-variant-numeric:tabular-nums}
+.hide{display:none!important}
+
+/* ─────────────────────────── shell ─────────────────────────── */
+.nav{
+  position:sticky;top:0;z-index:var(--z-nav);
+  background-color:var(--nav-bg);
+  -webkit-backdrop-filter:saturate(180%) blur(20px); backdrop-filter:saturate(180%) blur(20px);
+  border-bottom:.5px solid var(--separator);
+  padding-top:env(safe-area-inset-top);
+}
+.nav-in{
+  max-width:1080px;margin:0 auto;padding:11px 20px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+}
+.brand{display:flex;align-items:center;gap:9px;min-width:0}
+.brand svg{width:26px;height:26px;flex:none;border-radius:6px}
+.brand-t{font-size:1.0625rem;font-weight:640;letter-spacing:-.022em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand-s{font-size:.75rem;color:var(--label-2);font-weight:400;letter-spacing:0}
+main{max-width:1080px;margin:0 auto;padding:20px 20px calc(48px + env(safe-area-inset-bottom))}
+
+/* ─────────────────── segmented control ─────────────────── */
+.seg{
+  position:relative;display:grid;gap:2px;padding:2px;margin-bottom:22px;
+  background-color:var(--surface-2);border-radius:9px;
+  max-width:440px;  /* 桌機:讀作「控制項」而非滿版工具列 */
+}
+@media (prefers-color-scheme:light){.seg{background-color:rgba(118,118,128,.12)}}
+.seg-ind{
+  position:absolute;top:2px;bottom:2px;left:2px;border-radius:7px;
+  background-color:var(--surface);box-shadow:0 3px 8px rgba(0,0,0,.12),0 3px 1px rgba(0,0,0,.04);
+  transition:transform .26s var(--ease),width .26s var(--ease);pointer-events:none;
+}
+@media (prefers-color-scheme:dark){.seg-ind{background-color:#636366;box-shadow:none}}
+.seg button{
+  position:relative;z-index:1;padding:7px 4px;border-radius:7px;
+  font-size:.8125rem;font-weight:590;color:var(--label);
+  transition:opacity .2s,color .2s;white-space:nowrap;
+  display:flex;align-items:center;justify-content:center;gap:5px;
+}
+.seg button svg{
+  width:16px;height:16px;flex:none;
+  fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;
+}
+.seg button:not(.on){color:var(--label-2);font-weight:500}
+.seg button:not(.on) svg{opacity:.75}
+.seg button:active{opacity:.5}
+@media (max-width:400px){
+  .seg button{flex-direction:column;gap:3px;padding:6px 2px;font-size:.6875rem}
+  .seg button svg{width:19px;height:19px}
+}
+
+/* ─────────────────── grouped list ─────────────────── */
+.gtitle{
+  font-size:.8125rem;font-weight:600;letter-spacing:.02em;color:var(--label-2);
+  margin:0 4px 7px;display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+}
+.gtitle .aside{font-weight:400;letter-spacing:0;font-size:.75rem;color:var(--label-3)}
+.group{background-color:var(--surface);border-radius:var(--r-lg);overflow:hidden;margin-bottom:24px}
+.group.flush{margin-bottom:12px}
+.row{
+  display:flex;align-items:center;gap:12px;min-height:44px;
+  padding:11px 16px;position:relative;
+}
+.row+.row::before{
+  content:"";position:absolute;top:0;left:16px;right:0;height:.5px;background-color:var(--separator);
+}
+.row-main{flex:1;min-width:0}
+.row-t{font-size:1rem;line-height:1.3;overflow:hidden;text-overflow:ellipsis}
+.row-s{font-size:.8125rem;color:var(--label-2);margin-top:2px;line-height:1.35}
+.row-v{font-size:1rem;color:var(--label-2);text-align:right;white-space:nowrap}
+.row-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.empty{padding:26px 16px;text-align:center;color:var(--label-2);font-size:.9375rem}
+
+/* stat cluster inside a row (今日統計) */
+.stats{display:flex;gap:18px;white-space:nowrap}
+.stat{text-align:right}
+.stat b{display:block;font-size:1.0625rem;font-weight:640;font-variant-numeric:tabular-nums;line-height:1.2}
+.stat span{font-size:.6875rem;color:var(--label-3);letter-spacing:.01em}
+.stat.zero b{color:var(--label-3);font-weight:500}
+
+/* ─────────────────── buttons ─────────────────── */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:8px 15px;border-radius:var(--r-md);font-size:.875rem;font-weight:590;
+  transition:transform .12s var(--ease),background-color .18s,opacity .18s;white-space:nowrap;
+}
+.btn:active{transform:scale(.965)}
+.btn.filled{background-color:var(--blue-fill);color:#fff}
+.btn.filled:hover{filter:brightness(1.12)}
+.btn.tinted{background-color:var(--blue-tint);color:var(--blue)}
+.btn.tinted:hover{background-color:color-mix(in srgb,var(--blue) 17%,transparent)}
+.btn.plain{color:var(--blue);padding-inline:8px}
+.btn.plain:hover{background-color:var(--surface-hover)}
+.btn.danger{background-color:var(--red-tint);color:var(--red)}
+.btn.danger:hover{background-color:color-mix(in srgb,var(--red) 18%,transparent)}
+.btn.lg{padding:13px 20px;font-size:1rem;border-radius:12px;width:100%}
+.btn[disabled]{opacity:.4;pointer-events:none}
+
+/* ─────────────────── form controls ─────────────────── */
+.field{
+  background-color:var(--surface-2);border:.5px solid transparent;border-radius:var(--r-md);
+  padding:8px 12px;font-size:.9375rem;min-width:0;width:100%;
+  transition:border-color .18s,background-color .18s;
+}
+@media (prefers-color-scheme:light){.field{background-color:rgba(118,118,128,.09)}}
+.field:focus{outline:none;border-color:var(--blue);background-color:var(--surface)}
+.field::placeholder{color:var(--label-3)}
+input[type=date].field{min-width:145px}
+
+/* ─────────────────── status ─────────────────── */
+.dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
+.st{display:inline-flex;align-items:center;gap:6px;font-size:.875rem;font-weight:500;white-space:nowrap}
+.st-SEARCHING{color:var(--blue)} .st-ASSIGNED{color:var(--green)} .st-ARRIVED{color:var(--teal)}
+.st-COMPLETED{color:var(--label-2)} .st-CANCELLED{color:var(--label-2)}
+.st-NO_CAR{color:var(--orange)} .st-SEND_FAILED{color:var(--red)}
+.plate{font-weight:640;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.tag{
+  display:inline-block;padding:2px 8px;border-radius:6px;font-size:.75rem;font-weight:500;
+  background-color:var(--surface-2);color:var(--label-2);
+}
+@media (prefers-color-scheme:light){.tag{background-color:rgba(118,118,128,.12)}}
+
+/* ─────────────────── responsive table ─────────────────── */
+.tbl{width:100%;border-collapse:collapse;font-size:.9375rem}
+.tbl th{
+  text-align:left;font-size:.75rem;font-weight:590;color:var(--label-2);letter-spacing:.01em;
+  padding:9px 16px;white-space:nowrap;
+}
+.tbl thead tr{border-bottom:.5px solid var(--separator)}
+.tbl td{padding:11px 16px;vertical-align:middle}
+.tbl tbody tr+tr td{border-top:.5px solid var(--separator)}
+.tbl .r{text-align:right}
+@media (max-width:767px){
+  .tbl thead{display:none}
+  .tbl,.tbl tbody,.tbl tr,.tbl td{display:block;width:100%}
+  .tbl tbody tr{padding:12px 16px;position:relative}
+  .tbl tbody tr+tr{border-top:.5px solid var(--separator)}
+  .tbl td{padding:0;border:0!important;display:flex;justify-content:space-between;gap:14px;min-height:26px;align-items:baseline}
+  .tbl td+td{margin-top:3px}
+  .tbl td::before{
+    content:attr(data-l);flex:none;font-size:.8125rem;color:var(--label-2);
+  }
+  .tbl td.lead{display:block;margin-bottom:5px}
+  .tbl td.lead::before{display:none}
+  .tbl td.r{text-align:left}
+}
+
+/* ─────────────────── login ─────────────────── */
+.login{min-height:100vh;display:grid;place-items:center;padding:24px}
+.login-card{width:100%;max-width:370px;text-align:center}
+.login-icon{width:74px;height:74px;border-radius:17px;margin:0 auto 20px;display:block;box-shadow:var(--shadow)}
+.login h1{font-size:1.4375rem;font-weight:640;letter-spacing:-.024em}
+.login p{color:var(--label-2);font-size:.9375rem;margin-top:5px;margin-bottom:26px}
+.login .field{text-align:center;font-size:1.25rem;font-weight:600;letter-spacing:.14em;padding:15px 14px;border-radius:12px}
+.login .field::placeholder{letter-spacing:0;font-weight:400;font-size:1rem}
+.err{color:var(--red);font-size:.875rem;min-height:1.3em;margin:10px 0 2px}
+
+/* ─────────────────── sheet ─────────────────── */
+.scrim{
+  position:fixed;inset:0;z-index:var(--z-sheet);background:rgba(0,0,0,.42);
+  display:flex;align-items:center;justify-content:center;padding:20px;
+  animation:fade .22s var(--ease);
+}
+.sheet{
+  background-color:var(--surface);border-radius:var(--r-lg);padding:26px 24px 20px;
+  width:100%;max-width:350px;text-align:center;box-shadow:var(--shadow);
+  animation:pop .26s var(--ease);
+}
+.sheet h2{font-size:1.0625rem;font-weight:640}
+.sheet .code{
+  font-size:2rem;font-weight:700;letter-spacing:.16em;color:var(--blue);
+  font-variant-numeric:tabular-nums;margin:16px 0 10px;word-break:break-all;
+  font-family:ui-monospace,"SF Mono",Menlo,monospace;
+}
+.sheet .note{font-size:.8125rem;color:var(--label-2);line-height:1.5;margin-bottom:20px}
+@keyframes fade{from{opacity:0}}
+@keyframes pop{from{opacity:0;transform:scale(.94)}}
+@keyframes rise{from{opacity:0;transform:translateY(5px)}}
+.view{animation:rise .24s var(--ease)}
+
+/* ─────────────────── admin extras ─────────────────── */
+.fleet-h{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 4px 7px}
+.fleet-h h2{font-size:1.0625rem;font-weight:640;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+.fleet-h .id{font-size:.75rem;font-weight:400;color:var(--label-3);letter-spacing:0}
+details.add>summary{
+  list-style:none;cursor:pointer;padding:11px 16px;min-height:44px;display:flex;align-items:center;
+  gap:7px;color:var(--blue);font-size:.9375rem;font-weight:500;
+}
+details.add>summary::-webkit-details-marker{display:none}
+details.add>summary:hover{background-color:var(--surface-hover)}
+details.add[open]>summary{border-bottom:.5px solid var(--separator)}
+.form-grid{display:grid;gap:10px;padding:14px 16px}
+@media (min-width:768px){.form-grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));align-items:center}}
+.form-grid .full{grid-column:1/-1}
+
+@media (max-width:520px){
+  .nav-in{padding:10px 16px}
+  main{padding:16px 16px 40px}
+  .row{padding:11px 14px}
+  .row+.row::before{left:14px}
+  .tbl tbody tr{padding:12px 14px}
+  .stats{gap:14px}
+  .btn{min-height:44px;padding-inline:16px}   /* 手機:符合 44pt 觸控目標 */
+  .btn.plain{padding-inline:12px}
+  .row-actions{gap:6px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+  .seg-ind{transition:none}
+}
 </style>
 </head>
 <body>
 <div id="app"></div>
+
+<svg style="display:none">
+  <symbol id="i-logo" viewBox="0 0 100 100">
+    <rect width="100" height="100" rx="22" fill="#007AFF"/>
+    <g fill="#fff"><rect x="30" y="34" width="40" height="20" rx="8"/><rect x="19" y="45" width="62" height="19" rx="7"/></g>
+    <rect x="37" y="39" width="11" height="9" rx="3" fill="#0A5BD0"/><rect x="52" y="39" width="11" height="9" rx="3" fill="#0A5BD0"/>
+    <circle cx="34" cy="65" r="7" fill="#0A2A5E"/><circle cx="66" cy="65" r="7" fill="#0A2A5E"/>
+  </symbol>
+  <!-- 分頁圖示:SF Symbols 風格線性圖,stroke=currentColor -->
+  <symbol id="i-live" viewBox="0 0 20 20"><path d="M1.6 10h3.2l2.1-5.4 3.3 10.8 2-5.4h6.2"/></symbol>
+  <symbol id="i-report" viewBox="0 0 20 20"><path d="M3 16.5V9.2M7.7 16.5V3.5M12.3 16.5v-5.6M17 16.5V6.8"/></symbol>
+  <symbol id="i-devices" viewBox="0 0 20 20"><rect x="3.4" y="2.2" width="13.2" height="15.6" rx="2.4"/><path d="M8.4 15.1h3.2"/></symbol>
+  <symbol id="i-merchants" viewBox="0 0 20 20"><path d="M2.6 7.4h14.8v9.2H2.6z"/><path d="M2.2 7.4 4 3.4h12l1.8 4"/><path d="M7.6 16.6v-4.4h4.8v4.4"/></symbol>
+</svg>
+
 <script>
 const FN = 'https://znkphstzbguuijlcdhhy.supabase.co/functions/v1';
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ST = {SEARCHING:'尋車中',ASSIGNED:'已派車',ARRIVED:'已到店',COMPLETED:'完成',CANCELLED:'取消',NO_CAR:'無車',SEND_FAILED:'發送失敗'};
 const TY = {TAXI:'叫車',DESIGNATED_DRIVER:'代駕'};
-const twTime = s => s ? new Date(s).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}) : '';
-let state = JSON.parse(localStorage.getItem('ts.console') || '{}'); // {mode:'admin'|'fleet', key/token, fleet}
-let refreshTimer = null;
+const twTime = s => s ? new Date(s).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}) : '';
+const twClock = s => s ? new Date(s).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour:'2-digit',minute:'2-digit',hour12:false}) : '';
+const LOGO = '<svg><use href="#i-logo"/></svg>';
+
+let state = JSON.parse(localStorage.getItem('ts.console') || '{}');
+let timer = null;
 
 async function api(fn, body){
   const r = await fetch(FN + '/' + fn, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
@@ -61,264 +304,395 @@ async function api(fn, body){
   if (!r.ok) throw new Error(j.error || r.status);
   return j;
 }
-function save(){ localStorage.setItem('ts.console', JSON.stringify(state)); }
-function logout(){ state = {}; save(); clearInterval(refreshTimer); renderLogin(); }
+const save = () => localStorage.setItem('ts.console', JSON.stringify(state));
+function logout(){ state = {}; save(); clearInterval(timer); renderLogin(); }
+
 function showKey(title, key, note){
-  const m = document.createElement('div'); m.className = 'modal';
-  m.innerHTML = `<div class="card"><h2>${esc(title)}</h2><div class="keybox">${esc(key)}</div>
-    <div class="muted">${esc(note || '只顯示這一次,請立刻抄下')}</div><br><button onclick="this.closest('.modal').remove()">已抄好</button></div>`;
+  const m = document.createElement('div');
+  m.className = 'scrim';
+  m.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+    <h2>${esc(title)}</h2><div class="code">${esc(key)}</div>
+    <p class="note">${esc(note)}</p>
+    <button class="btn filled lg">好，已記下</button></div>`;
+  const close = () => m.remove();
+  m.querySelector('button').onclick = close;
+  m.onclick = e => { if (e.target === m) close(); };
+  document.addEventListener('keydown', function esc2(e){ if(e.key==='Escape'){close();document.removeEventListener('keydown',esc2);} });
   document.body.appendChild(m);
+  m.querySelector('button').focus();
 }
 
-// ───────── 登入(統一入口) ─────────
+/* ═══════════════════ 登入 ═══════════════════ */
 function renderLogin(){
-  clearInterval(refreshTimer);
-  $('#app').innerHTML = `<div class="login"><div class="card">
-    <h1>🚕 TripStore 後台</h1><p class="muted">輸入金鑰登入</p><br>
-    <input id="key" style="width:100%;font-size:18px;letter-spacing:2px" placeholder="金鑰" autocomplete="off">
-    <div class="err" id="err"></div><br>
-    <button style="width:100%" onclick="doLogin()">登入</button>
+  clearInterval(timer);
+  $('#app').innerHTML = `<div class="login"><div class="login-card">
+    <svg class="login-icon" viewBox="0 0 100 100"><use href="#i-logo"/></svg>
+    <h1>TripStore 後台</h1>
+    <p>輸入金鑰以繼續</p>
+    <input id="key" class="field" placeholder="金鑰" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="金鑰">
+    <p class="err" id="err" role="alert"></p>
+    <button class="btn filled lg" id="go">登入</button>
   </div></div>`;
   $('#key').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  $('#go').onclick = doLogin;
   $('#key').focus();
 }
 async function doLogin(){
   const key = $('#key').value.trim();
   if (!key) return;
-  $('#err').textContent = '';
-  // ① 試平台主金鑰
+  const btn = $('#go');
+  btn.disabled = true; btn.textContent = '驗證中…'; $('#err').textContent = '';
   try {
     const r = await fetch(FN + '/platform-admin', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'list',key})});
     if (r.ok) { state = {mode:'admin', key}; save(); renderAdmin(); return; }
   } catch {}
-  // ② 試車隊金鑰 / 裝置金鑰
   try {
     const j = await api('fleet-console', {action:'login', key});
     state = {mode:'fleet', token:j.token, fleet:j.fleet}; save(); renderFleet(); return;
   } catch {}
+  btn.disabled = false; btn.textContent = '登入';
   $('#err').textContent = '金鑰不正確';
+  $('#key').select();
 }
 
-// ───────── 車隊後台 ─────────
-let fleetTab = 'live';
-function renderFleet(){
-  $('#app').innerHTML = `<div class="wrap">
-    <div class="topbar"><h1>🚕 ${esc(state.fleet.name)}</h1>
-      <button class="ghost small" onclick="logout()">登出</button></div>
-    <div class="tabs">
-      ${['live|即時看板','report|報表','devices|裝置','merchants|店家'].map(t=>{const [k,n]=t.split('|');
-        return `<button class="${fleetTab===k?'on':''}" onclick="fleetTab='${k}';renderFleet()">${n}</button>`}).join('')}
-    </div><div id="body">載入中…</div></div>`;
-  clearInterval(refreshTimer);
-  if (fleetTab === 'live') { loadLive(); refreshTimer = setInterval(loadLive, 10000); }
-  if (fleetTab === 'report') renderReport();
-  if (fleetTab === 'devices') loadDevices();
-  if (fleetTab === 'merchants') loadMerchants();
+/* ═══════════════════ 外殼 ═══════════════════ */
+function shell(title, sub, body){
+  return `<header class="nav"><div class="nav-in">
+      <div class="brand">${LOGO}<div style="min-width:0">
+        <div class="brand-t">${esc(title)}</div>
+        ${sub ? `<div class="brand-s">${esc(sub)}</div>` : ''}
+      </div></div>
+      <button class="btn plain" id="out">登出</button>
+    </div></header><main>${body}</main>`;
 }
-async function loadLive(){
+function moveInd(){
+  const seg = $('.seg'); if (!seg) return;
+  const on = seg.querySelector('button.on'), ind = seg.querySelector('.seg-ind');
+  if (!on || !ind || !on.offsetWidth) return;
+  ind.style.width = on.offsetWidth + 'px';
+  ind.style.transform = `translateX(${on.offsetLeft - 2}px)`;
+}
+/** 量測時機不只一個:首次繪製、字型載入完(中文字型會改變寬度)、容器尺寸變動 */
+let segRO = null;
+function trackInd(){
+  moveInd();
+  requestAnimationFrame(moveInd);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(moveInd);
+  segRO?.disconnect();
+  const seg = $('.seg');
+  if (seg && window.ResizeObserver){ segRO = new ResizeObserver(moveInd); segRO.observe(seg); }
+}
+addEventListener('resize', moveInd);
+
+/* ═══════════════════ 車隊後台 ═══════════════════ */
+let tab = 'live';
+const TABS = [['live','即時'],['report','報表'],['devices','裝置'],['merchants','店家']];
+
+function renderFleet(){
+  $('#app').innerHTML = shell(state.fleet.name, '車隊後台', `
+    <nav class="seg" style="grid-template-columns:repeat(${TABS.length},1fr)" role="tablist">
+      <span class="seg-ind"></span>
+      ${TABS.map(([k,n])=>`<button role="tab" aria-selected="${tab===k}" class="${tab===k?'on':''}" data-tab="${k}">
+        <svg aria-hidden="true"><use href="#i-${k}"/></svg>${n}</button>`).join('')}
+    </nav><div id="view"><div class="group"><p class="empty">載入中…</p></div></div>`);
+  $('#out').onclick = logout;
+  document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; renderFleet(); });
+  trackInd();
+  clearInterval(timer);
+  ({live:loadLive, report:renderReport, devices:loadDevices, merchants:loadMerchants})[tab]();
+  if (tab === 'live') timer = setInterval(() => loadLive(true), 10000);
+}
+
+function statHTML(n, label){
+  return `<div class="stat${n?'':' zero'}"><b>${n}</b><span>${label}</span></div>`;
+}
+
+async function loadLive(quiet){
   try{
     const j = await api('fleet-console', {action:'overview', token:state.token});
-    const act = (j.active||[]).map(t=>`<tr><td>${esc(t.id)}</td><td>${esc((j.merchants.find(m=>m.id===t.merchant_id)||{}).name||t.merchant_id)}</td>
-      <td>${TY[t.type]||t.type}</td><td class="st-${t.status}">${ST[t.status]||t.status}</td>
-      <td class="plate">${esc(t.plate_number||'—')}</td><td>${esc(t.vehicle_color||'')}</td>
-      <td>${t.eta_minutes!=null?t.eta_minutes+' 分':''}</td><td class="muted">${twTime(t.created_at)}</td></tr>`).join('');
-    const today = (j.today||[]).map(s=>`<tr><td>${esc(s.name)}</td><td class="muted">${esc(s.businessDay)}</td>
-      <td>${s.taxi}</td><td>${s.dd}</td><td>${s.cancelled}</td><td>${s.noCar}</td></tr>`).join('');
-    $('#body').innerHTML = `
-      <div class="card"><h2>進行中(${(j.active||[]).length})<span class="muted" style="font-weight:400;font-size:13px"> · 10 秒自動更新</span></h2>
-        <div class="scroll"><table><tr><th>單號</th><th>店家</th><th>類型</th><th>狀態</th><th>車牌</th><th>顏色</th><th>ETA</th><th>建立</th></tr>
-        ${act || '<tr><td colspan="8" class="muted">目前沒有進行中的任務</td></tr>'}</table></div></div>
-      <div class="card"><h2>各店今日(依各店營業日)</h2>
-        <div class="scroll"><table><tr><th>店家</th><th>營業日</th><th>叫車</th><th>代駕</th><th>取消</th><th>無車</th></tr>${today}</table></div></div>`;
-  }catch(e){ if(e.message!=='登入逾期') $('#body').innerHTML = `<div class="card muted">載入失敗:${esc(e.message)}</div>`; }
+    const mName = id => (j.merchants.find(m=>m.id===id)||{}).name || id;
+    const act = j.active || [];
+
+    const actRows = act.map(t=>`<tr>
+        <td class="lead"><span class="plate" style="font-size:1.0625rem">${esc(t.plate_number || (t.status==='SEARCHING'?'尋車中…':'—'))}</span>
+          ${t.vehicle_color?`<span class="row-s" style="display:inline;margin-left:8px">${esc(t.vehicle_color)}</span>`:''}</td>
+        <td data-l="店家">${esc(mName(t.merchant_id))}</td>
+        <td data-l="狀態"><span class="st st-${t.status}"><span class="dot" style="background:currentColor"></span>${ST[t.status]||t.status}</span></td>
+        <td data-l="類型">${TY[t.type]||t.type}</td>
+        <td data-l="ETA" class="r num">${t.eta_minutes!=null ? t.eta_minutes+' 分' : '—'}</td>
+        <td data-l="建立" class="r num" style="color:var(--label-2)">${twClock(t.created_at)}</td>
+      </tr>`).join('');
+
+    const today = (j.today||[]).map(s=>`<div class="row">
+        <div class="row-main"><div class="row-t">${esc(s.name)}</div>
+          <div class="row-s">營業日 ${esc(s.businessDay)}</div></div>
+        <div class="stats">
+          ${statHTML(s.taxi,'叫車')}${statHTML(s.dd,'代駕')}${statHTML(s.cancelled,'取消')}${statHTML(s.noCar,'無車')}
+        </div></div>`).join('');
+
+    const html = `<div class="view">
+      <div class="gtitle">進行中<span class="aside">${act.length ? act.length + ' 筆 · 每 10 秒更新' : '每 10 秒更新'}</span></div>
+      <div class="group">${act.length ? `<table class="tbl"><thead><tr>
+          <th>車輛</th><th>店家</th><th>狀態</th><th>類型</th><th class="r">ETA</th><th class="r">建立</th>
+        </tr></thead><tbody>${actRows}</tbody></table>` : '<p class="empty">目前沒有進行中的任務</p>'}</div>
+      <div class="gtitle">各店今日<span class="aside">依各店營業日結算</span></div>
+      <div class="group">${today || '<p class="empty">還沒有店家</p>'}</div></div>`;
+
+    if (quiet) { const v = $('#view'); if (v && v.innerHTML.length) { v.innerHTML = html.replace('class="view"','class=""'); return; } }
+    $('#view').innerHTML = html;
+  }catch(e){ fail(e); }
 }
+
 function renderReport(){
-  const d = n => { const x = new Date(Date.now()+n*86400000); return x.toISOString().slice(0,10); };
-  $('#body').innerHTML = `<div class="card"><div class="row">
-      <label class="muted">從 <input type="date" id="rFrom" value="${d(-7)}"></label>
-      <label class="muted">到 <input type="date" id="rTo" value="${d(0)}"></label>
-      <button class="small" onclick="loadReport()">查詢</button>
-      <button class="small ghost" onclick="csv()">匯出 CSV</button>
-    </div></div><div id="rBody"></div>`;
+  const d = n => new Date(Date.now()+n*86400000).toISOString().slice(0,10);
+  $('#view').innerHTML = `<div class="view">
+    <div class="group flush"><div class="row" style="flex-wrap:wrap;gap:10px">
+      <input type="date" class="field" id="rFrom" value="${d(-7)}" style="width:auto" aria-label="起始日">
+      <span style="color:var(--label-2)">→</span>
+      <input type="date" class="field" id="rTo" value="${d(0)}" style="width:auto" aria-label="結束日">
+      <div class="row-actions" style="flex:1">
+        <button class="btn tinted" id="rGo">查詢</button>
+        <button class="btn plain" id="rCsv">匯出 CSV</button>
+      </div></div></div>
+    <div id="rBody"></div></div>`;
+  $('#rGo').onclick = loadReport; $('#rCsv').onclick = csv;
   loadReport();
 }
-let lastRows = [], lastMerchants = [];
+let rows = [], merchants = [];
 async function loadReport(){
+  $('#rBody').innerHTML = '<div class="group"><p class="empty">查詢中…</p></div>';
   try{
     const j = await api('fleet-console', {action:'report', token:state.token, from:$('#rFrom').value, to:$('#rTo').value});
-    lastRows = j.rows||[]; lastMerchants = j.merchants||[];
-    const mName = id => (lastMerchants.find(m=>m.id===id)||{}).name||id;
-    const stats = {};
-    for (const t of lastRows){
-      const k = t.merchant_id;
-      stats[k] ??= {name:mName(k), taxi:0, dd:0, cancelled:0, noCar:0, total:0};
-      stats[k].total++;
-      if (t.status==='CANCELLED') stats[k].cancelled++;
-      else if (t.status==='NO_CAR') stats[k].noCar++;
-      else if (t.type==='TAXI') stats[k].taxi++;
-      else stats[k].dd++;
+    rows = j.rows||[]; merchants = j.merchants||[];
+    const mName = id => (merchants.find(m=>m.id===id)||{}).name || id;
+    const st = {};
+    for (const t of rows){
+      const s = st[t.merchant_id] ??= {name:mName(t.merchant_id), taxi:0, dd:0, cancelled:0, noCar:0, total:0};
+      s.total++;
+      if (t.status==='CANCELLED') s.cancelled++;
+      else if (t.status==='NO_CAR') s.noCar++;
+      else if (t.type==='TAXI') s.taxi++; else s.dd++;
     }
-    const sRows = Object.values(stats).map(s=>`<tr><td>${esc(s.name)}</td><td>${s.taxi}</td><td>${s.dd}</td><td>${s.cancelled}</td><td>${s.noCar}</td><td>${s.total}</td></tr>`).join('');
-    const rows = lastRows.map(t=>`<tr><td>${esc(t.id)}</td><td class="muted">${esc(t.business_day)}</td><td>${esc(mName(t.merchant_id))}</td>
-      <td>${TY[t.type]||t.type}</td><td class="st-${t.status}">${ST[t.status]||t.status}</td>
-      <td class="plate">${esc(t.plate_number||'')}</td><td>${esc(t.vehicle_color||'')}</td><td>${t.eta_minutes??''}</td>
-      <td class="muted">${twTime(t.created_at)}</td></tr>`).join('');
+    const sum = Object.values(st).map(s=>`<div class="row">
+        <div class="row-main"><div class="row-t">${esc(s.name)}</div>
+        <div class="row-s">合計 ${s.total} 筆</div></div>
+        <div class="stats">${statHTML(s.taxi,'叫車')}${statHTML(s.dd,'代駕')}${statHTML(s.cancelled,'取消')}${statHTML(s.noCar,'無車')}</div>
+      </div>`).join('');
+    const list = rows.map(t=>`<tr>
+        <td class="lead"><span class="plate">${esc(t.plate_number||'—')}</span>
+          <span class="row-s" style="display:inline;margin-left:8px">${esc(mName(t.merchant_id))}</span></td>
+        <td data-l="單號" class="num" style="color:var(--label-2)">${esc(t.id)}</td>
+        <td data-l="營業日" class="num">${esc(t.business_day)}</td>
+        <td data-l="類型">${TY[t.type]||t.type}</td>
+        <td data-l="狀態"><span class="st st-${t.status}">${ST[t.status]||t.status}</span></td>
+        <td data-l="顏色">${esc(t.vehicle_color||'—')}</td>
+        <td data-l="ETA" class="r num">${t.eta_minutes ?? '—'}</td>
+        <td data-l="建立" class="r num" style="color:var(--label-2)">${twTime(t.created_at)}</td>
+      </tr>`).join('');
     $('#rBody').innerHTML = `
-      <div class="card"><h2>每店統計</h2><div class="scroll"><table><tr><th>店家</th><th>叫車</th><th>代駕</th><th>取消</th><th>無車</th><th>合計</th></tr>${sRows||'<tr><td colspan="6" class="muted">此區間沒有資料</td></tr>'}</table></div></div>
-      <div class="card"><h2>逐筆(${lastRows.length})</h2><div class="scroll"><table><tr><th>單號</th><th>營業日</th><th>店家</th><th>類型</th><th>狀態</th><th>車牌</th><th>顏色</th><th>分</th><th>建立</th></tr>${rows}</table></div></div>`;
-  }catch(e){ if(e.message!=='登入逾期') $('#rBody').innerHTML = `<div class="card muted">查詢失敗:${esc(e.message)}</div>`; }
+      <div class="gtitle">每店統計</div>
+      <div class="group">${sum || '<p class="empty">此區間沒有資料</p>'}</div>
+      <div class="gtitle">逐筆<span class="aside">${rows.length} 筆</span></div>
+      <div class="group">${rows.length ? `<table class="tbl"><thead><tr>
+        <th>車輛 / 店家</th><th>單號</th><th>營業日</th><th>類型</th><th>狀態</th><th>顏色</th><th class="r">ETA</th><th class="r">建立</th>
+      </tr></thead><tbody>${list}</tbody></table>` : '<p class="empty">此區間沒有資料</p>'}</div>`;
+  }catch(e){ if(e.message!=='登入逾期') $('#rBody').innerHTML = `<div class="group"><p class="empty">查詢失敗:${esc(e.message)}</p></div>`; }
 }
 function csv(){
-  const mName = id => (lastMerchants.find(m=>m.id===id)||{}).name||id;
+  if (!rows.length) return;
+  const mName = id => (merchants.find(m=>m.id===id)||{}).name || id;
   const head = '單號,營業日,店家,類型,狀態,車牌,顏色,分鐘,建立時間\n';
-  const body = lastRows.map(t=>[t.id,t.business_day,mName(t.merchant_id),TY[t.type]||t.type,ST[t.status]||t.status,
+  const body = rows.map(t=>[t.id,t.business_day,mName(t.merchant_id),TY[t.type]||t.type,ST[t.status]||t.status,
     t.plate_number||'',t.vehicle_color||'',t.eta_minutes??'',twTime(t.created_at)]
     .map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
-  const blob = new Blob(['﻿'+head+body], {type:'text/csv'});
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  a.href = URL.createObjectURL(new Blob(['﻿'+head+body], {type:'text/csv'}));
   a.download = `tripstore-${$('#rFrom').value}~${$('#rTo').value}.csv`;
   a.click();
 }
+
 async function loadDevices(){
   try{
     const j = await api('fleet-console', {action:'devices', token:state.token});
-    const mName = id => (j.merchants.find(m=>m.id===id)||{}).name||id;
-    const rows = (j.devices||[]).map(d=>{
+    const mName = id => (j.merchants.find(m=>m.id===id)||{}).name || id;
+    const rowsH = (j.devices||[]).map(d=>{
       const beat = d.last_heartbeat_at || d.last_seen_at;
-      const mins = beat ? (Date.now()-new Date(beat).getTime())/60000 : Infinity;
-      const on = mins < 15;
-      return `<tr><td>${esc(mName(d.merchant_id))}</td><td>${esc(d.label||'')}</td>
-        <td style="color:${on?'var(--ok)':'var(--danger)'}">${on?'● 在線':'● 離線'}</td>
-        <td>${d.battery_pct!=null?d.battery_pct+'%':'—'}</td><td>${esc(d.app_version||'—')}</td>
-        <td class="muted">${twTime(beat)}</td><td>${d.enabled?'':'<span class="tag">停用</span>'}</td></tr>`;}).join('');
-    $('#body').innerHTML = `<div class="card"><h2>裝置健康</h2><div class="scroll"><table>
-      <tr><th>店家</th><th>裝置</th><th>連線</th><th>電量</th><th>版本</th><th>最後回報</th><th></th></tr>${rows||'<tr><td colspan="7" class="muted">沒有裝置</td></tr>'}</table></div></div>`;
-  }catch(e){ if(e.message!=='登入逾期') $('#body').innerHTML = `<div class="card muted">載入失敗:${esc(e.message)}</div>`; }
+      const on = beat && (Date.now()-new Date(beat).getTime())/60000 < 15;
+      return `<div class="row">
+        <div class="row-main"><div class="row-t">${esc(mName(d.merchant_id))}
+          ${d.enabled?'':'<span class="tag">已停用</span>'}</div>
+          <div class="row-s">${esc(d.label||'平板')}${d.app_version?' · v'+esc(d.app_version):''}${beat?' · 最後回報 '+twTime(beat):' · 尚未回報'}</div></div>
+        <div style="text-align:right">
+          <div class="st" style="color:${on?'var(--green)':'var(--red)'};justify-content:flex-end">
+            <span class="dot" style="background:${on?'var(--dot-green)':'var(--dot-red)'}"></span>${on?'在線':'離線'}</div>
+          ${d.battery_pct!=null?`<div class="row-s num">電量 ${d.battery_pct}%</div>`:''}
+        </div></div>`;}).join('');
+    $('#view').innerHTML = `<div class="view">
+      <div class="gtitle">平板狀態<span class="aside">15 分鐘內有回報視為在線</span></div>
+      <div class="group">${rowsH || '<p class="empty">還沒有裝置</p>'}</div></div>`;
+  }catch(e){ fail(e); }
 }
+
 async function loadMerchants(){
   try{
     const j = await api('fleet-console', {action:'overview', token:state.token});
-    const rows = (j.merchants||[]).map(m=>`<tr>
-      <td><input value="${esc(m.name)}" id="mn-${m.id}" style="width:120px"></td>
-      <td><input value="${esc(m.pickup_address)}" id="ma-${m.id}" style="width:220px"></td>
-      <td><input value="${esc(m.support_phone||'')}" id="mp-${m.id}" style="width:110px"></td>
-      <td><input value="${esc(String(m.settlement_time).slice(0,5))}" id="ms-${m.id}" style="width:70px"></td>
-      <td><button class="small" onclick="saveMerchant('${m.id}')">存</button>
-          <button class="small ${m.enabled?'danger':''}" onclick="toggleMerchant('${m.id}',${!m.enabled})">${m.enabled?'停用':'啟用'}</button></td></tr>`).join('');
-    $('#body').innerHTML = `<div class="card"><h2>店家管理</h2><p class="muted">結算時間=該店營業日切點(例 05:00)</p><br>
-      <div class="scroll"><table><tr><th>名稱</th><th>上車地址</th><th>客服電話</th><th>結算</th><th></th></tr>${rows}</table></div></div>`;
-  }catch(e){ if(e.message!=='登入逾期') $('#body').innerHTML = `<div class="card muted">載入失敗:${esc(e.message)}</div>`; }
+    const list = (j.merchants||[]).map(m=>`<div class="row" style="flex-wrap:wrap;gap:10px">
+        <div class="row-main" style="flex-basis:100%">
+          <div class="row-t" style="font-weight:590;display:flex;align-items:center;gap:8px">${esc(m.name)}
+            ${m.enabled?'':'<span class="tag">已停用</span>'}</div></div>
+        <div class="form-grid" style="padding:0;flex:1;grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+          <input class="field" id="mn-${m.id}" value="${esc(m.name)}" aria-label="店名" placeholder="店名">
+          <input class="field full" id="ma-${m.id}" value="${esc(m.pickup_address)}" aria-label="上車地址" placeholder="上車地址">
+          <input class="field" id="mp-${m.id}" value="${esc(m.support_phone||'')}" aria-label="客服電話" placeholder="客服電話">
+          <input class="field" id="ms-${m.id}" value="${esc(String(m.settlement_time).slice(0,5))}" aria-label="結算時間" placeholder="05:00">
+        </div>
+        <div class="row-actions">
+          <button class="btn tinted" data-save="${m.id}">儲存</button>
+          <button class="btn ${m.enabled?'danger':'plain'}" data-toggle="${m.id}" data-to="${!m.enabled}">${m.enabled?'停用':'啟用'}</button>
+        </div></div>`).join('');
+    $('#view').innerHTML = `<div class="view">
+      <div class="gtitle">店家設定<span class="aside">結算時間為該店營業日切點</span></div>
+      <div class="group">${list || '<p class="empty">還沒有店家</p>'}</div></div>`;
+    document.querySelectorAll('[data-save]').forEach(b=>b.onclick=()=>saveMerchant(b.dataset.save,b));
+    document.querySelectorAll('[data-toggle]').forEach(b=>b.onclick=()=>toggleMerchant(b.dataset.toggle,b.dataset.to==='true'));
+  }catch(e){ fail(e); }
 }
-async function saveMerchant(id){
+async function saveMerchant(id, btn){
+  const t = btn.textContent; btn.disabled = true; btn.textContent = '儲存中…';
   try{
     await api('fleet-console', {action:'update_merchant', token:state.token, merchantId:id, fields:{
       name:$('#mn-'+id).value, pickup_address:$('#ma-'+id).value,
       support_phone:$('#mp-'+id).value, settlement_time:$('#ms-'+id).value }});
-    loadMerchants();
-  }catch(e){ alert('儲存失敗:'+e.message); }
+    btn.textContent = '已儲存'; setTimeout(loadMerchants, 700);
+  }catch(e){ btn.disabled=false; btn.textContent=t; alert('儲存失敗:'+e.message); }
 }
 async function toggleMerchant(id, enabled){
-  if (!enabled && !confirm('確定停用這家店?平板會立刻無法叫車')) return;
+  if (!enabled && !confirm('停用這家店?該店平板會立刻無法叫車。')) return;
   try{ await api('fleet-console', {action:'update_merchant', token:state.token, merchantId:id, fields:{enabled}}); loadMerchants(); }
   catch(e){ alert('失敗:'+e.message); }
 }
+function fail(e){ if(e.message!=='登入逾期') $('#view').innerHTML = `<div class="group"><p class="empty">載入失敗:${esc(e.message)}</p></div>`; }
 
-// ───────── 平台管理後台 ─────────
-let adminData = null;
+/* ═══════════════════ 平台管理 ═══════════════════ */
 function renderAdmin(){
-  $('#app').innerHTML = `<div class="wrap">
-    <div class="topbar"><h1>🛠 平台管理</h1><button class="ghost small" onclick="logout()">登出</button></div>
-    <div id="body">載入中…</div></div>`;
+  clearInterval(timer);
+  $('#app').innerHTML = shell('平台管理', 'TripStore', '<div id="view"><div class="group"><p class="empty">載入中…</p></div></div>');
+  $('#out').onclick = logout;
   loadAdmin();
 }
-async function adminApi(body){ return api('platform-admin', {...body, key:state.key}); }
+const adminApi = body => api('platform-admin', {...body, key:state.key});
+
 async function loadAdmin(){
   try{
-    adminData = await adminApi({action:'list'});
-    const {fleets, merchants, devices} = adminData;
-    const fleetRows = fleets.map(f=>{
+    const {fleets, merchants, devices} = await adminApi({action:'list'});
+    const html = fleets.map(f=>{
       const ms = merchants.filter(m=>m.fleet_id===f.id);
       const mRows = ms.map(m=>{
         const dev = devices.find(d=>d.merchant_id===m.id && d.enabled);
         const beat = dev && (dev.last_heartbeat_at || dev.last_seen_at);
         const on = beat && (Date.now()-new Date(beat).getTime())/60000 < 15;
-        return `<tr><td style="padding-left:26px">${esc(m.name)} <span class="muted">${esc(m.id)}</span></td>
-          <td class="muted">${esc(m.pickup_address)}</td>
-          <td>${dev?`<span style="color:${on?'var(--ok)':'var(--danger)'}">●</span> ${dev.battery_pct!=null?dev.battery_pct+'%':''} ${esc(dev.app_version||'')}`:'<span class="muted">無裝置</span>'}</td>
-          <td style="white-space:nowrap">
-            <button class="small" onclick="issueDeviceKey('${m.id}','${esc(m.name)}')">${dev?'重發金鑰':'發金鑰'}</button>
-            <button class="small ghost" onclick="issuePin('${m.id}','${esc(m.name)}')">${dev&&dev.hasPin?'重發PIN':'發PIN'}</button>
-            <button class="small ${m.enabled?'danger':''}" onclick="adminToggleMerchant('${m.id}',${!m.enabled})">${m.enabled?'停用':'啟用'}</button>
-          </td></tr>`;}).join('');
-      return `<div class="card">
-        <div class="row" style="justify-content:space-between">
-          <h2>${esc(f.name)} <span class="muted" style="font-size:13px">${esc(f.id)} ${f.enabled?'':'(已停用)'}</span></h2>
-          <div>
-            <button class="small" onclick="issueFleetKey('${f.id}','${esc(f.name)}')">${f.hasConsoleKey?'重發':'發'}車隊金鑰</button>
-            <button class="small ${f.enabled?'danger':''}" onclick="toggleFleet('${f.id}',${!f.enabled})">${f.enabled?'停用':'啟用'}</button>
-          </div>
-        </div>
-        <div class="row muted" style="font-size:13px;margin:8px 0">
-          LINE 群組:<input id="fg-${f.id}" value="${esc(f.line_group_id||'')}" placeholder="C…(群裡打 /id 取得)" style="width:300px;font-size:13px">
-          <button class="small ghost" onclick="saveFleetGroup('${f.id}')">存</button>
-          <span>客服:${esc(f.support_phone||'—')}</span>
-        </div>
-        <div class="scroll"><table><tr><th>店家</th><th>地址</th><th>裝置</th><th>操作</th></tr>
-          ${mRows || '<tr><td colspan="4" class="muted" style="padding-left:26px">還沒有店家</td></tr>'}</table></div>
-        <br><details><summary class="muted" style="cursor:pointer">＋ 新增店家</summary><br>
+        const devLine = dev
+          ? `<span class="st" style="color:${on?'var(--green)':'var(--red)'}"><span class="dot" style="background:${on?'var(--dot-green)':'var(--dot-red)'}"></span>${on?'在線':'離線'}</span>`
+            + (dev.battery_pct!=null?` · ${dev.battery_pct}%`:'') + (dev.app_version?` · v${esc(dev.app_version)}`:'')
+            + (dev.hasPin?'':' · <span style="color:var(--orange)">未設 PIN</span>')
+          : '<span style="color:var(--label-3)">尚未發金鑰</span>';
+        return `<div class="row" style="flex-wrap:wrap;gap:10px">
+          <div class="row-main" style="min-width:190px">
+            <div class="row-t">${esc(m.name)} <span class="id">${esc(m.id)}</span>
+              ${m.enabled?'':'<span class="tag">已停用</span>'}</div>
+            <div class="row-s">${esc(m.pickup_address)}</div>
+            <div class="row-s" style="margin-top:4px">${devLine}</div></div>
+          <div class="row-actions">
+            <button class="btn tinted" data-dk="${m.id}" data-n="${esc(m.name)}">${dev?'重發金鑰':'發金鑰'}</button>
+            <button class="btn plain" data-pin="${m.id}" data-n="${esc(m.name)}">${dev&&dev.hasPin?'重發 PIN':'發 PIN'}</button>
+            <button class="btn ${m.enabled?'danger':'plain'}" data-mt="${m.id}" data-to="${!m.enabled}">${m.enabled?'停用':'啟用'}</button>
+          </div></div>`;}).join('');
+      return `<div class="fleet-h">
+          <h2>${esc(f.name)} <span class="id">${esc(f.id)}</span>${f.enabled?'':'<span class="tag">已停用</span>'}</h2>
+          <div class="row-actions">
+            <button class="btn tinted" data-fk="${f.id}" data-n="${esc(f.name)}">${f.hasConsoleKey?'重發':'發'}車隊金鑰</button>
+            <button class="btn ${f.enabled?'danger':'plain'}" data-ft="${f.id}" data-to="${!f.enabled}">${f.enabled?'停用':'啟用'}</button>
+          </div></div>
+        <div class="group">
           <div class="row">
-            <input id="nm-id-${f.id}" placeholder="代號(英數,如 bar_001)" style="width:170px">
-            <input id="nm-name-${f.id}" placeholder="店名" style="width:140px">
-            <input id="nm-addr-${f.id}" placeholder="上車地址" style="width:240px">
-            <input id="nm-st-${f.id}" placeholder="結算 05:00" value="05:00" style="width:90px">
-            <button class="small" onclick="createMerchant('${f.id}')">建立</button>
-          </div></details></div>`;}).join('');
-    $('#body').innerHTML = fleetRows + `
-      <div class="card"><details><summary style="cursor:pointer"><b>＋ 新增車隊</b></summary><br>
-        <div class="row">
-          <input id="nf-id" placeholder="代號(英數,如 fleet_01)" style="width:180px">
-          <input id="nf-name" placeholder="車隊名稱" style="width:150px">
-          <input id="nf-phone" placeholder="客服電話" style="width:140px">
-          <button class="small" onclick="createFleet()">建立</button>
-        </div><p class="muted" style="margin-top:8px">建好後:把 bot 拉進車隊群 → 群裡打 /id → 把群組 ID 貼進上方欄位</p></details></div>`;
-  }catch(e){ if(e.message!=='登入逾期') $('#body').innerHTML = `<div class="card muted">載入失敗:${esc(e.message)}</div>`; }
+            <div class="row-main" style="min-width:150px"><div class="row-t">LINE 車板群組</div>
+              <div class="row-s">${f.line_group_id ? '已綁定' : '在群裡打 /id 取得群組 ID'}</div></div>
+            <input class="field" id="fg-${f.id}" value="${esc(f.line_group_id||'')}" placeholder="C…" style="max-width:300px" aria-label="LINE 群組 ID">
+            <button class="btn tinted" data-fg="${f.id}">存</button>
+          </div>
+          <div class="row"><div class="row-main"><div class="row-t">客服電話</div></div>
+            <div class="row-v">${esc(f.support_phone||'—')}</div></div>
+          ${mRows}
+          <details class="add"><summary>＋ 新增店家</summary>
+            <div class="form-grid">
+              <input class="field" id="nm-id-${f.id}" placeholder="代號 如 bar_001">
+              <input class="field" id="nm-name-${f.id}" placeholder="店名">
+              <input class="field" id="nm-st-${f.id}" value="05:00" placeholder="結算 05:00">
+              <input class="field full" id="nm-addr-${f.id}" placeholder="上車地址">
+              <div class="full"><button class="btn filled" data-nm="${f.id}">建立店家</button></div>
+            </div></details>
+        </div>`;}).join('');
+
+    $('#view').innerHTML = `<div class="view">${html || ''}
+      <div class="gtitle">新增</div>
+      <div class="group"><details class="add"><summary>＋ 新增車隊</summary>
+        <div class="form-grid">
+          <input class="field" id="nf-id" placeholder="代號 如 fleet_01">
+          <input class="field" id="nf-name" placeholder="車隊名稱">
+          <input class="field" id="nf-phone" placeholder="客服電話">
+          <div class="full"><button class="btn filled" id="nf-go">建立車隊</button>
+            <p class="row-s" style="margin-top:10px">建好後把 bot 拉進車隊群、在群裡打 <b>/id</b>,再把群組 ID 貼進上方欄位。</p></div>
+        </div></details></div></div>`;
+    bindAdmin();
+  }catch(e){ if(e.message!=='登入逾期') $('#view').innerHTML = `<div class="group"><p class="empty">載入失敗:${esc(e.message)}</p></div>`; }
+}
+function bindAdmin(){
+  const q = (sel, fn) => document.querySelectorAll(sel).forEach(b => b.onclick = () => fn(b));
+  q('[data-fk]', b => issueFleetKey(b.dataset.fk, b.dataset.n));
+  q('[data-dk]', b => issueDeviceKey(b.dataset.dk, b.dataset.n));
+  q('[data-pin]', b => issuePin(b.dataset.pin, b.dataset.n));
+  q('[data-ft]', b => toggleFleet(b.dataset.ft, b.dataset.to==='true'));
+  q('[data-mt]', b => adminToggleMerchant(b.dataset.mt, b.dataset.to==='true'));
+  q('[data-fg]', b => saveFleetGroup(b.dataset.fg));
+  q('[data-nm]', b => createMerchant(b.dataset.nm));
+  const nf = $('#nf-go'); if (nf) nf.onclick = createFleet;
 }
 async function issueFleetKey(id, name){
-  if (!confirm(`發新的車隊金鑰給「${name}」?舊金鑰與已登入的網頁 session 會立刻失效`)) return;
+  if (!confirm(`發新的車隊金鑰給「${name}」?\n\n舊金鑰立刻失效,已登入的網頁會被登出。`)) return;
   const j = await adminApi({action:'issue_fleet_key', fleetId:id});
-  showKey(name + ' 車隊金鑰', j.key, '給車隊登入這個網頁用;只顯示這一次');
+  showKey(name + ' 車隊金鑰', j.key, '給車隊登入這個網頁用。只顯示這一次,關掉就看不到了。');
   loadAdmin();
 }
 async function issueDeviceKey(id, name){
-  if (!confirm(`發新的裝置金鑰給「${name}」?若已有平板綁定,舊金鑰立刻失效需重綁`)) return;
+  if (!confirm(`發新的裝置金鑰給「${name}」?\n\n若已有平板綁定,舊金鑰立刻失效,該店平板需要重新綁定。`)) return;
   const j = await adminApi({action:'issue_device_key', merchantId:id});
-  showKey(name + ' 裝置金鑰', j.key, '輸入到平板綁定畫面;只顯示這一次');
+  showKey(name + ' 裝置金鑰', j.key, '輸入到平板的綁定畫面。只顯示這一次,關掉就看不到了。');
   loadAdmin();
 }
 async function issuePin(id, name){
-  const j = await adminApi({action:'issue_pin', merchantId:id});
-  if (j.pin) showKey(name + ' 隱藏設定 PIN', j.pin, '長按平板左上角店名 5 秒後輸入;只顯示這一次');
-  else alert(j.error === 'NO_DEVICE' ? '這家店還沒有裝置,先發裝置金鑰' : '失敗:' + j.error);
+  try{
+    const j = await adminApi({action:'issue_pin', merchantId:id});
+    showKey(name + ' 隱藏設定 PIN', j.pin, '長按平板左上角店名 5 秒後輸入。只顯示這一次。');
+  }catch(e){ alert(e.message==='NO_DEVICE' ? '這家店還沒有裝置,請先發裝置金鑰。' : '失敗:'+e.message); }
   loadAdmin();
 }
 async function toggleFleet(id, enabled){
-  if (!enabled && !confirm('停用整個車隊?其下所有平板與網頁登入都會失效')) return;
+  if (!enabled && !confirm('停用整個車隊?\n\n其下所有平板與網頁登入都會失效。')) return;
   await adminApi({action:'update_fleet', fleetId:id, fields:{enabled}}); loadAdmin();
 }
 async function adminToggleMerchant(id, enabled){
-  if (!enabled && !confirm('停用這家店?')) return;
+  if (!enabled && !confirm('停用這家店?該店平板會立刻無法叫車。')) return;
   await adminApi({action:'update_merchant', merchantId:id, fields:{enabled}}); loadAdmin();
 }
 async function saveFleetGroup(id){
-  await adminApi({action:'update_fleet', fleetId:id, fields:{line_group_id:$('#fg-'+id).value}});
-  alert('已儲存'); loadAdmin();
+  try{ await adminApi({action:'update_fleet', fleetId:id, fields:{line_group_id:$('#fg-'+id).value}}); loadAdmin(); }
+  catch(e){ alert('儲存失敗:'+e.message); }
 }
 async function createFleet(){
   try{
     await adminApi({action:'create_fleet', fleetId:$('#nf-id').value, name:$('#nf-name').value, supportPhone:$('#nf-phone').value});
     loadAdmin();
-  }catch(e){ alert(e.message === 'DUPLICATE' ? '代號已存在' : '建立失敗:' + e.message); }
+  }catch(e){ alert(e.message==='DUPLICATE' ? '這個代號已經有人用了。' : '建立失敗:'+e.message); }
 }
 async function createMerchant(fleetId){
   try{
@@ -326,10 +700,10 @@ async function createMerchant(fleetId){
       merchantId:$('#nm-id-'+fleetId).value, name:$('#nm-name-'+fleetId).value,
       pickupAddress:$('#nm-addr-'+fleetId).value, settlementTime:$('#nm-st-'+fleetId).value});
     loadAdmin();
-  }catch(e){ alert(e.message === 'DUPLICATE' ? '代號已存在' : '建立失敗:' + e.message); }
+  }catch(e){ alert(e.message==='DUPLICATE' ? '這個代號已經有人用了。' : '建立失敗:'+e.message); }
 }
 
-// ───────── 啟動 ─────────
+/* ═══════════════════ 啟動 ═══════════════════ */
 if (state.mode === 'admin' && state.key) renderAdmin();
 else if (state.mode === 'fleet' && state.token) renderFleet();
 else renderLogin();
