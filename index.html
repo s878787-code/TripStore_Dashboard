@@ -716,7 +716,7 @@ const adminApi = body => api('platform-admin', {...body, key:state.key});
 
 async function loadAdmin(){
   try{
-    const {fleets, merchants, devices} = await adminApi({action:'list'});
+    const {fleets, groups, merchants, devices} = await adminApi({action:'list'});
     const html = fleets.map(f=>{
       const ms = merchants.filter(m=>m.fleet_id===f.id);
       const mRows = ms.map(m=>{
@@ -751,7 +751,7 @@ async function loadAdmin(){
           <div class="row">
             <div class="row-main"><div class="row-t">LINE 車板群組</div>
               <div class="row-s">由車隊後台自行設定</div></div>
-            <div class="row-v">${(adminData?.groups||[]).filter(g=>g.fleet_id===f.id).map(g=>esc(g.name)).join('、') || '尚未設定'}</div>
+            <div class="row-v">${(groups||[]).filter(g=>g.fleet_id===f.id).map(g=>g.line_group_id[0]==='U'?'個人':'群組').join('、') || '尚未設定'}</div>
           </div>
           <div class="row"><div class="row-main"><div class="row-t">客服電話</div></div>
             <div class="row-v">${esc(f.support_phone||'—')}</div></div>
