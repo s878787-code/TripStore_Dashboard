@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TripStore 後台</title>
+<style>
+:root{--bg:#080B10;--card:#11161F;--card2:#161C27;--line:#1F2733;--fg:#F5F7FA;--muted:#9AA4B2;
+--blue:#2F7BFF;--purple:#8B5CF6;--danger:#FF5A5F;--ok:#34D399;--warn:#FBBF24;--eta:#7CF2C4}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;min-height:100vh}
+.wrap{max-width:1100px;margin:0 auto;padding:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
+h1{font-size:22px;margin-bottom:4px}h2{font-size:17px;margin-bottom:12px}
+.muted{color:var(--muted);font-size:14px}
+input,select{background:#0C1017;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:15px;outline:none}
+input:focus{border-color:var(--blue)}
+button{background:var(--blue);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-size:15px;font-weight:700;cursor:pointer}
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
+button.danger{background:transparent;border:1px solid var(--danger);color:var(--danger)}
+button.small{padding:6px 10px;font-size:13px;font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{color:var(--muted);text-align:left;font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+.tag{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;border:1px solid var(--line);color:var(--muted)}
+.st-SEARCHING{color:var(--blue)}.st-ASSIGNED{color:var(--ok)}.st-ARRIVED{color:var(--eta)}
+.st-COMPLETED{color:var(--muted)}.st-CANCELLED{color:var(--danger)}.st-NO_CAR{color:var(--warn)}.st-SEND_FAILED{color:var(--danger)}
+.tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.tabs button{background:transparent;border:1px solid var(--line);color:var(--muted)}
+.tabs button.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px}
+.plate{font-weight:800;font-size:16px;letter-spacing:.5px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9}
+.modal .card{max-width:420px;text-align:center}
+.keybox{font-size:34px;font-weight:900;letter-spacing:6px;color:var(--eta);margin:14px 0;font-family:ui-monospace,monospace}
+.login{min-height:100vh;display:flex;align-items:center;justify-content:center}
+.login .card{width:min(420px,92vw);padding:32px}
+.err{color:var(--danger);font-size:14px;min-height:1.2em;margin-top:8px}
+.scroll{overflow-x:auto}
+@media(max-width:700px){.wrap{padding:10px}td,th{padding:6px}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const FN = 'https://znkphstzbguuijlcdhhy.supabase.co/functions/v1';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ST = {SEARCHING:'尋車中',ASSIGNED:'已派車',ARRIVED:'已到店',COMPLETED:'完成',CANCELLED:'取消',NO_CAR:'無車',SEND_FAILED:'發送失敗'};
+const TY = {TAXI:'叫車',DESIGNATED_DRIVER:'代駕'};
+const twTime = s => s ? new Date(s).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}) : '';
+let state = JSON.parse(localStorage.getItem('ts.console') || '{}'); // {mode:'admin'|'fleet', key/token, fleet}
+let refreshTimer = null;
+
+async function api(fn, body){
+  const r = await fetch(FN + '/' + fn, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j = await r.json().catch(()=>({}));
+  if (r.status === 401) { logout(); throw new Error('登入逾期'); }
+  if (!r.ok) throw new Error(j.error || r.status);
+  return j;
+}
+function save(){ localStorage.setItem('ts.console', JSON.stringify(state)); }
+function logout(){ state = {}; save(); clearInterval(refreshTimer); renderLogin(); }
+function showKey(title, key, note){
+  const m = document.createElement('div'); m.className = 'modal';
+  m.innerHTML = `<div class="card"><h2>${esc(title)}</h2><div class="keybox">${esc(key)}</div>
+    <div class="muted">${esc(note || '只顯示這一次,請立刻抄下')}</div><br><button onclick="this.closest('.modal').remove()">已抄好</button></div>`;
+  document.body.appendChild(m);
+}
+
+// ───────── 登入(統一入口) ─────────
+function renderLogin(){
+  clearInterval(refreshTimer);
+  $('#app').innerHTML = `<div class="login"><div class="card">
+    <h1>🚕 TripStore 後台</h1><p class="muted">輸入金鑰登入</p><br>
+    <input id="key" style="width:100%;font-size:18px;letter-spacing:2px" placeholder="金鑰" autocomplete="off">
+    <div class="err" id="err"></div><br>
+    <button style="width:100%" onclick="doLogin()">登入</button>
+  </div></div>`;
+  $('#key').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  $('#key').focus();
+}
+async function doLogin(){
+  const key = $('#key').value.trim();
+  if (!key) return;
+  $('#err').textContent = '';
+  // ① 試平台主金鑰
+  try {
+    const r = await fetch(FN + '/platform-admin', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'list',key})});
+    if (r.ok) { state = {mode:'admin', key}; save(); renderAdmin(); return; }
+  } catch {}
+  // ② 試車隊金鑰 / 裝置金鑰
+  try {
+    const j = await api('fleet-console', {action:'login', key});
+    state = {mode:'fleet', token:j.token, fleet:j.fleet}; save(); renderFleet(); return;
+  } catch {}
+  $('#err').textContent = '金鑰不正確';
+}
+
+// ───────── 車隊後台 ─────────
+let fleetTab = 'live';
+function renderFleet(){
+  $('#app').innerHTML = `<div class="wrap">
+    <div class="topbar"><h1>🚕 ${esc(state.fleet.name)}</h1>
+      <button class="ghost small" onclick="logout()">登出</button></div>
+    <div class="tabs">
+      ${['live|即時看板','report|報表','devices|裝置','merchants|店家'].map(t=>{const [k,n]=t.split('|');
+        return `<button class="${fleetTab===k?'on':''}" onclick="fleetTab='${k}';renderFleet()">${n}</button>`}).join('')}
+    </div><div id="body">載入中…</div></div>`;
+  clearInterval(refreshTimer);
+  if (fleetTab === 'live') { loadLive(); refreshTimer = setInterval(loadLive, 10000); }
+  if (fleetTab === 'report') renderReport();
+  if (fleetTab === 'devices') loadDevices();
+  if (fleetTab === 'merchants') loadMerchants();
+}
+async function loadLive(){
+  try{
+    const j = await api('fleet-console', {action:'overview', token:state.token});
+    const act = (j.active||[]).map(t=>`<tr><td>${esc(t.id)}</td><td>${esc((j.merchants.find(m=>m.id===t.merchant_id)||{}).name||t.merchant_id)}</td>
+      <td>${TY[t.type]||t.type}</td><td class="st-${t.status}">${ST[t.status]||t.status}</td>
+      <td class="plate">${esc(t.plate_number||'—')}</td><td>${esc(t.vehicle_color||'')}</td>
+      <td>${t.eta_minutes!=null?t.eta_minutes+' 分':''}</td><td class="muted">${twTime(t.created_at)}</td></tr>`).join('');
+    const today = (j.today||[]).map(s=>`<tr><td>${esc(s.name)}</td><td class="muted">${esc(s.businessDay)}</td>
+      <td>${s.taxi}</td><td>${s.dd}</td><td>${s.cancelled}</td><td>${s.noCar}</td></tr>`).join('');
+    $('#body').innerHTML = `
+      <div class="card"><h2>進行中(${(j.active||[]).length})<span class="muted" style="font-weight:400;font-size:13px"> · 10 秒自動更新</span></h2>
+        <div class="scroll"><table><tr><th>單號</th><th>店家</th><th>類型</th><th>狀態</th><th>車牌</th><th>顏色</th><th>ETA</th><th>建立</th></tr>
+        ${act || '<tr><td colspan="8" class="muted">目前沒有進行中的任務</td></tr>'}</table></div></div>
+      <div class="card"><h2>各店今日(依各店營業日)</h2>
+        <div class="scroll"><table><tr><th>店家</th><th>營業日</th><th>叫車</th><th>代駕</th><th>取消</th><th>無車</th></tr>${today}</table></div></div>`;
+  }catch(e){ if(e.message!=='登入逾期') $('#body').innerHTML = `<div class="card muted">載入失敗:${esc(e.message)}</div>`; }
+}
+function renderReport(){
+  const d = n => { const x = new Date(Date.now()+n*86400000); return x.toISOString().slice(0,10); };
+  $('#body').innerHTML = `<div class="card"><div class="row">
+      <label class="muted">從 <input type="date" id="rFrom" value="${d(-7)}"></label>
+      <label class="muted">到 <input type="date" id="rTo" value="${d(0)}"></label>
+      <button class="small" onclick="loadReport()">查詢</button>
+      <button class="small ghost" onclick="csv()">匯出 CSV</button>
+    </div></div><div id="rBody"></div>`;
+  loadReport();
+}
+let lastRows = [], lastMerchants = [];
+async function loadReport(){
+  try{
+    const j = await api('fleet-console', {action:'report', token:state.token, from:$('#rFrom').value, to:$('#rTo').value});
+    lastRows = j.rows||[]; lastMerchants = j.merchants||[];
+    const mName = id => (lastMerchants.find(m=>m.id===id)||{}).name||id;
+    const stats = {};
+    for (const t of lastRows){
+      const k = t.merchant_id;
+      stats[k] ??= {name:mName(k), taxi:0, dd:0, cancelled:0, noCar:0, total:0};
+      stats[k].total++;
+      if (t.status==='CANCELLED') stats[k].cancelled++;
+      else if (t.status==='NO_CAR') stats[k].noCar++;
+      else if (t.type==='TAXI') stats[k].taxi++;
+      else stats[k].dd++;
+    }
+    const sRows = Object.values(stats).map(s=>`<tr><td>${esc(s.name)}</td><td>${s.taxi}</td><td>${s.dd}</td><td>${s.cancelled}</td><td>${s.noCar}</td><td>${s.total}</td></tr>`).join('');
+    const rows = lastRows.map(t=>`<tr><td>${esc(t.id)}</td><td class="muted">${esc(t.business_day)}</td><td>${esc(mName(t.merchant_id))}</td>
+      <td>${TY[t.type]||t.type}</td><td class="st-${t.status}">${ST[t.status]||t.status}</td>
+      <td class="plate">${esc(t.plate_number||'')}</td><td>${esc(t.vehicle_color||'')}</td><td>${t.eta_minutes??''}</td>
+      <td class="muted">${twTime(t.created_at)}</td></tr>`).join('');
+    $('#rBody').innerHTML = `
+      <div class="card"><h2>每店統計</h2><div class="scroll"><table><tr><th>店家</th><th>叫車</th><th>代駕</th><th>取消</th><th>無車</th><th>合計</th></tr>${sRows||'<tr><td colspan="6" class="muted">此區間沒有資料</td></tr>'}</table></div></div>
+      <div class="card"><h2>逐筆(${lastRows.length})</h2><div class="scroll"><table><tr><th>單號</th><th>營業日</th><th>店家</th><th>類型</th><th>狀態</th><th>車牌</th><th>顏色</th><th>分</th><th>建立</th></tr>${rows}</table></div></div>`;
+  }catch(e){ if(e.message!=='登入逾期') $('#rBody').innerHTML = `<div class="card muted">查詢失敗:${esc(e.message)}</div>`; }
+}
+function csv(){
+  const mName = id => (lastMerchants.find(m=>m.id===id)||{}).name||id;
+  const head = '單號,營業日,店家,類型,狀態,車牌,顏色,分鐘,建立時間\n';
+  const body = lastRows.map(t=>[t.id,t.business_day,mName(t.merchant_id),TY[t.type]||t.type,ST[t.status]||t.status,
+    t.plate_number||'',t.vehicle_color||'',t.eta_minutes??'',twTime(t.created_at)]
+    .map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob = new Blob(['﻿'+head+body], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `tripstore-${$('#rFrom').value}~${$('#rTo').value}.csv`;
+  a.click();
+}
+async function loadDevices(){
+  try{
+    const j = await api('fleet-console', {action:'devices', token:state.token});
+    const mName = id => (j.merchants.find(m=>m.id===id)||{}).name||id;
+    const rows = (j.devices||[]).map(d=>{
+      const beat = d.last_heartbeat_at || d.last_seen_at;
+      const mins = beat ? (Date.now()-new Date(beat).getTime())/60000 : Infinity;
+      const on = mins < 15;
+      return `<tr><td>${esc(mName(d.merchant_id))}</td><td>${esc(d.label||'')}</td>
+        <td style="color:${on?'var(--ok)':'var(--danger)'}">${on?'● 在線':'● 離線'}</td>
+        <td>${d.battery_pct!=null?d.battery_pct+'%':'—'}</td><td>${esc(d.app_version||'—')}</td>
+        <td class="muted">${twTime(beat)}</td><td>${d.enabled?'':'<span class="tag">停用</span>'}</td></tr>`;}).join('');
+    $('#body').innerHTML = `<div class="card"><h2>裝置健康</h2><div class="scroll"><table>
+      <tr><th>店家</th><th>裝置</th><th>連線</th><th>電量</th><th>版本</th><th>最後回報</th><th></th></tr>${rows||'<tr><td colspan="7" class="muted">沒有裝置</td></tr>'}</table></div></div>`;
+  }catch(e){ if(e.message!=='登入逾期') $('#body').innerHTML = `<div class="card muted">載入失敗:${esc(e.message)}</div>`; }
+}
+async function loadMerchants(){
+  try{
+    const j = await api('fleet-console', {action:'overview', token:state.token});
+    const rows = (j.merchants||[]).map(m=>`<tr>
+      <td><input value="${esc(m.name)}" id="mn-${m.id}" style="width:120px"></td>
+      <td><input value="${esc(m.pickup_address)}" id="ma-${m.id}" style="width:220px"></td>
+      <td><input value="${esc(m.support_phone||'')}" id="mp-${m.id}" style="width:110px"></td>
+      <td><input value="${esc(String(m.settlement_time).slice(0,5))}" id="ms-${m.id}" style="width:70px"></td>
+      <td><button class="small" onclick="saveMerchant('${m.id}')">存</button>
+          <button class="small ${m.enabled?'danger':''}" onclick="toggleMerchant('${m.id}',${!m.enabled})">${m.enabled?'停用':'啟用'}</button></td></tr>`).join('');
+    $('#body').innerHTML = `<div class="card"><h2>店家管理</h2><p class="muted">結算時間=該店營業日切點(例 05:00)</p><br>
+      <div class="scroll"><table><tr><th>名稱</th><th>上車地址</th><th>客服電話</th><th>結算</th><th></th></tr>${rows}</table></div></div>`;
+  }catch(e){ if(e.message!=='登入逾期') $('#body').innerHTML = `<div class="card muted">載入失敗:${esc(e.message)}</div>`; }
+}
+async function saveMerchant(id){
+  try{
+    await api('fleet-console', {action:'update_merchant', token:state.token, merchantId:id, fields:{
+      name:$('#mn-'+id).value, pickup_address:$('#ma-'+id).value,
+      support_phone:$('#mp-'+id).value, settlement_time:$('#ms-'+id).value }});
+    loadMerchants();
+  }catch(e){ alert('儲存失敗:'+e.message); }
+}
+async function toggleMerchant(id, enabled){
+  if (!enabled && !confirm('確定停用這家店?平板會立刻無法叫車')) return;
+  try{ await api('fleet-console', {action:'update_merchant', token:state.token, merchantId:id, fields:{enabled}}); loadMerchants(); }
+  catch(e){ alert('失敗:'+e.message); }
+}
+
+// ───────── 平台管理後台 ─────────
+let adminData = null;
+function renderAdmin(){
+  $('#app').innerHTML = `<div class="wrap">
+    <div class="topbar"><h1>🛠 平台管理</h1><button class="ghost small" onclick="logout()">登出</button></div>
+    <div id="body">載入中…</div></div>`;
+  loadAdmin();
+}
+async function adminApi(body){ return api('platform-admin', {...body, key:state.key}); }
+async function loadAdmin(){
+  try{
+    adminData = await adminApi({action:'list'});
+    const {fleets, merchants, devices} = adminData;
+    const fleetRows = fleets.map(f=>{
+      const ms = merchants.filter(m=>m.fleet_id===f.id);
+      const mRows = ms.map(m=>{
+        const dev = devices.find(d=>d.merchant_id===m.id && d.enabled);
+        const beat = dev && (dev.last_heartbeat_at || dev.last_seen_at);
+        const on = beat && (Date.now()-new Date(beat).getTime())/60000 < 15;
+        return `<tr><td style="padding-left:26px">${esc(m.name)} <span class="muted">${esc(m.id)}</span></td>
+          <td class="muted">${esc(m.pickup_address)}</td>
+          <td>${dev?`<span style="color:${on?'var(--ok)':'var(--danger)'}">●</span> ${dev.battery_pct!=null?dev.battery_pct+'%':''} ${esc(dev.app_version||'')}`:'<span class="muted">無裝置</span>'}</td>
+          <td style="white-space:nowrap">
+            <button class="small" onclick="issueDeviceKey('${m.id}','${esc(m.name)}')">${dev?'重發金鑰':'發金鑰'}</button>
+            <button class="small ghost" onclick="issuePin('${m.id}','${esc(m.name)}')">${dev&&dev.hasPin?'重發PIN':'發PIN'}</button>
+            <button class="small ${m.enabled?'danger':''}" onclick="adminToggleMerchant('${m.id}',${!m.enabled})">${m.enabled?'停用':'啟用'}</button>
+          </td></tr>`;}).join('');
+      return `<div class="card">
+        <div class="row" style="justify-content:space-between">
+          <h2>${esc(f.name)} <span class="muted" style="font-size:13px">${esc(f.id)} ${f.enabled?'':'(已停用)'}</span></h2>
+          <div>
+            <button class="small" onclick="issueFleetKey('${f.id}','${esc(f.name)}')">${f.hasConsoleKey?'重發':'發'}車隊金鑰</button>
+            <button class="small ${f.enabled?'danger':''}" onclick="toggleFleet('${f.id}',${!f.enabled})">${f.enabled?'停用':'啟用'}</button>
+          </div>
+        </div>
+        <div class="row muted" style="font-size:13px;margin:8px 0">
+          LINE 群組:<input id="fg-${f.id}" value="${esc(f.line_group_id||'')}" placeholder="C…(群裡打 /id 取得)" style="width:300px;font-size:13px">
+          <button class="small ghost" onclick="saveFleetGroup('${f.id}')">存</button>
+          <span>客服:${esc(f.support_phone||'—')}</span>
+        </div>
+        <div class="scroll"><table><tr><th>店家</th><th>地址</th><th>裝置</th><th>操作</th></tr>
+          ${mRows || '<tr><td colspan="4" class="muted" style="padding-left:26px">還沒有店家</td></tr>'}</table></div>
+        <br><details><summary class="muted" style="cursor:pointer">＋ 新增店家</summary><br>
+          <div class="row">
+            <input id="nm-id-${f.id}" placeholder="代號(英數,如 bar_001)" style="width:170px">
+            <input id="nm-name-${f.id}" placeholder="店名" style="width:140px">
+            <input id="nm-addr-${f.id}" placeholder="上車地址" style="width:240px">
+            <input id="nm-st-${f.id}" placeholder="結算 05:00" value="05:00" style="width:90px">
+            <button class="small" onclick="createMerchant('${f.id}')">建立</button>
+          </div></details></div>`;}).join('');
+    $('#body').innerHTML = fleetRows + `
+      <div class="card"><details><summary style="cursor:pointer"><b>＋ 新增車隊</b></summary><br>
+        <div class="row">
+          <input id="nf-id" placeholder="代號(英數,如 fleet_01)" style="width:180px">
+          <input id="nf-name" placeholder="車隊名稱" style="width:150px">
+          <input id="nf-phone" placeholder="客服電話" style="width:140px">
+          <button class="small" onclick="createFleet()">建立</button>
+        </div><p class="muted" style="margin-top:8px">建好後:把 bot 拉進車隊群 → 群裡打 /id → 把群組 ID 貼進上方欄位</p></details></div>`;
+  }catch(e){ if(e.message!=='登入逾期') $('#body').innerHTML = `<div class="card muted">載入失敗:${esc(e.message)}</div>`; }
+}
+async function issueFleetKey(id, name){
+  if (!confirm(`發新的車隊金鑰給「${name}」?舊金鑰與已登入的網頁 session 會立刻失效`)) return;
+  const j = await adminApi({action:'issue_fleet_key', fleetId:id});
+  showKey(name + ' 車隊金鑰', j.key, '給車隊登入這個網頁用;只顯示這一次');
+  loadAdmin();
+}
+async function issueDeviceKey(id, name){
+  if (!confirm(`發新的裝置金鑰給「${name}」?若已有平板綁定,舊金鑰立刻失效需重綁`)) return;
+  const j = await adminApi({action:'issue_device_key', merchantId:id});
+  showKey(name + ' 裝置金鑰', j.key, '輸入到平板綁定畫面;只顯示這一次');
+  loadAdmin();
+}
+async function issuePin(id, name){
+  const j = await adminApi({action:'issue_pin', merchantId:id});
+  if (j.pin) showKey(name + ' 隱藏設定 PIN', j.pin, '長按平板左上角店名 5 秒後輸入;只顯示這一次');
+  else alert(j.error === 'NO_DEVICE' ? '這家店還沒有裝置,先發裝置金鑰' : '失敗:' + j.error);
+  loadAdmin();
+}
+async function toggleFleet(id, enabled){
+  if (!enabled && !confirm('停用整個車隊?其下所有平板與網頁登入都會失效')) return;
+  await adminApi({action:'update_fleet', fleetId:id, fields:{enabled}}); loadAdmin();
+}
+async function adminToggleMerchant(id, enabled){
+  if (!enabled && !confirm('停用這家店?')) return;
+  await adminApi({action:'update_merchant', merchantId:id, fields:{enabled}}); loadAdmin();
+}
+async function saveFleetGroup(id){
+  await adminApi({action:'update_fleet', fleetId:id, fields:{line_group_id:$('#fg-'+id).value}});
+  alert('已儲存'); loadAdmin();
+}
+async function createFleet(){
+  try{
+    await adminApi({action:'create_fleet', fleetId:$('#nf-id').value, name:$('#nf-name').value, supportPhone:$('#nf-phone').value});
+    loadAdmin();
+  }catch(e){ alert(e.message === 'DUPLICATE' ? '代號已存在' : '建立失敗:' + e.message); }
+}
+async function createMerchant(fleetId){
+  try{
+    await adminApi({action:'create_merchant', fleetId,
+      merchantId:$('#nm-id-'+fleetId).value, name:$('#nm-name-'+fleetId).value,
+      pickupAddress:$('#nm-addr-'+fleetId).value, settlementTime:$('#nm-st-'+fleetId).value});
+    loadAdmin();
+  }catch(e){ alert(e.message === 'DUPLICATE' ? '代號已存在' : '建立失敗:' + e.message); }
+}
+
+// ───────── 啟動 ─────────
+if (state.mode === 'admin' && state.key) renderAdmin();
+else if (state.mode === 'fleet' && state.token) renderFleet();
+else renderLogin();
+</script>
+</body>
+</html>
