@@ -738,12 +738,14 @@ async function loadAdmin(){
             <button class="btn tinted" data-dk="${m.id}" data-n="${esc(m.name)}">${dev?'重發金鑰':'發金鑰'}</button>
             <button class="btn plain" data-pin="${m.id}" data-n="${esc(m.name)}">${dev&&dev.hasPin?'重發 PIN':'發 PIN'}</button>
             <button class="btn ${m.enabled?'danger':'plain'}" data-mt="${m.id}" data-to="${!m.enabled}">${m.enabled?'停用':'啟用'}</button>
+            ${m.enabled?'':`<button class="btn danger" data-mdel="${m.id}" data-n="${esc(m.name)}">刪除</button>`}
           </div></div>`;}).join('');
       return `<div class="fleet-h">
           <h2>${esc(f.name)} <span class="id">${esc(f.id)}</span>${f.enabled?'':'<span class="tag">已停用</span>'}</h2>
           <div class="row-actions">
             <button class="btn tinted" data-fk="${f.id}" data-n="${esc(f.name)}">${f.hasConsoleKey?'重發':'發'}車隊金鑰</button>
             <button class="btn ${f.enabled?'danger':'plain'}" data-ft="${f.id}" data-to="${!f.enabled}">${f.enabled?'停用':'啟用'}</button>
+            ${f.enabled?'':`<button class="btn danger" data-fdel="${f.id}" data-n="${esc(f.name)}">刪除</button>`}
           </div></div>
         <div class="group">
           <div class="row">
@@ -784,6 +786,8 @@ function bindAdmin(){
   q('[data-pin]', b => issuePin(b.dataset.pin, b.dataset.n));
   q('[data-ft]', b => toggleFleet(b.dataset.ft, b.dataset.to==='true'));
   q('[data-mt]', b => adminToggleMerchant(b.dataset.mt, b.dataset.to==='true'));
+  q('[data-mdel]', b => deleteMerchant(b.dataset.mdel, b.dataset.n));
+  q('[data-fdel]', b => deleteFleet(b.dataset.fdel, b.dataset.n));
   q('[data-nm]', b => createMerchant(b.dataset.nm));
   const nf = $('#nf-go'); if (nf) nf.onclick = createFleet;
 }
@@ -804,6 +808,22 @@ async function issuePin(id, name){
     const j = await adminApi({action:'issue_pin', merchantId:id});
     showKey(name + ' 隱藏設定 PIN', j.pin, '長按平板左上角店名 5 秒後輸入。只顯示這一次。');
   }catch(e){ alert(e.message==='NO_DEVICE' ? '這家店還沒有裝置,請先發裝置金鑰。' : '失敗:'+e.message); }
+  loadAdmin();
+}
+async function deleteMerchant(id, name){
+  if (!confirm(`永久刪除店家「${name}」?
+
+該店的所有歷史叫車紀錄、裝置綁定會一併刪除,無法復原。`)) return;
+  if (prompt(`確認刪除請輸入店家名稱:${name}`) !== name) return;
+  try{ await adminApi({action:'delete_merchant', merchantId:id}); }catch(e){ alert('刪除失敗:'+e.message); }
+  loadAdmin();
+}
+async function deleteFleet(id, name){
+  if (!confirm(`永久刪除車隊「${name}」?
+
+其下所有店家、歷史紀錄、裝置與後台登入會一併刪除,無法復原。`)) return;
+  if (prompt(`確認刪除請輸入車隊名稱:${name}`) !== name) return;
+  try{ await adminApi({action:'delete_fleet', fleetId:id}); }catch(e){ alert('刪除失敗:'+e.message); }
   loadAdmin();
 }
 async function toggleFleet(id, enabled){
