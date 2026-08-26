@@ -27,8 +27,9 @@
   --ease:cubic-bezier(.32,.72,0,1);
   --z-sheet:50; --z-nav:20;
 }
+/* 深色:系統偏好 或 使用者手動選 dark。手動選 light 時不套用(:not([data-theme=light])) */
 @media (prefers-color-scheme:dark){
-  :root{
+  :root:not([data-theme=light]){
     /* 深色:文字色需要「亮」,填色底需要「暗」(白字壓在上面),兩者方向相反 → --blue 與 --blue-fill 分開 */
     --bg:#000; --surface:#1C1C1E; --surface-2:#2C2C2E; --surface-hover:rgba(255,255,255,.06);
     --label:#FFF; --label-2:#A1A1A8; --label-3:#96969E;
@@ -41,6 +42,19 @@
     --shadow:0 1px 3px rgba(0,0,0,.5),0 12px 40px rgba(0,0,0,.55);
   }
 }
+:root[data-theme=dark]{
+    /* 深色:文字色需要「亮」,填色底需要「暗」(白字壓在上面),兩者方向相反 → --blue 與 --blue-fill 分開 */
+    --bg:#000; --surface:#1C1C1E; --surface-2:#2C2C2E; --surface-hover:rgba(255,255,255,.06);
+    --label:#FFF; --label-2:#A1A1A8; --label-3:#96969E;
+    --separator:rgba(84,84,88,.6);
+    --blue:#409EFF; --blue-fill:#0C6CD4; --blue-tint:rgba(64,158,255,.12);
+    --green:#30D158; --red:#FF6961; --orange:#FF9F0A; --teal:#40C8E0; --purple:#BF5AF2;
+    --dot-green:#30D158; --dot-red:#FF453A; --dot-orange:#FF9F0A;
+    --red-tint:rgba(255,105,97,.12);
+    --nav-bg:rgba(20,20,22,.78);
+    --shadow:0 1px 3px rgba(0,0,0,.5),0 12px 40px rgba(0,0,0,.55);
+  }
+
 
 /* ─────────────────────────── base ─────────────────────────── */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -81,13 +95,15 @@ main{max-width:1080px;margin:0 auto;padding:20px 20px calc(48px + env(safe-area-
   background-color:var(--surface-2);border-radius:9px;
   max-width:440px;  /* 桌機:讀作「控制項」而非滿版工具列 */
 }
-@media (prefers-color-scheme:light){.seg{background-color:rgba(118,118,128,.12)}}
+@media (prefers-color-scheme:light){:root:not([data-theme=dark]) .seg{background-color:rgba(118,118,128,.12)}}
+:root[data-theme=light] .seg{background-color:rgba(118,118,128,.12)}
 .seg-ind{
   position:absolute;top:2px;bottom:2px;left:2px;border-radius:7px;
   background-color:var(--surface);box-shadow:0 3px 8px rgba(0,0,0,.12),0 3px 1px rgba(0,0,0,.04);
   transition:transform .26s var(--ease),width .26s var(--ease);pointer-events:none;
 }
-@media (prefers-color-scheme:dark){.seg-ind{background-color:#636366;box-shadow:none}}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .seg-ind{background-color:#636366;box-shadow:none}}
+:root[data-theme=dark] .seg-ind{background-color:#636366;box-shadow:none}
 .seg button{
   position:relative;z-index:1;padding:7px 4px;border-radius:7px;
   font-size:.8125rem;font-weight:590;color:var(--label);
@@ -105,6 +121,25 @@ main{max-width:1080px;margin:0 auto;padding:20px 20px calc(48px + env(safe-area-
   .seg button{flex-direction:column;gap:3px;padding:6px 2px;font-size:.6875rem}
   .seg button svg{width:19px;height:19px}
 }
+
+/* ─────────────────── 主題切換(淺/深/自動) ─────────────────── */
+.theme{
+  display:inline-flex;gap:1px;padding:2px;border-radius:8px;
+  background-color:var(--surface-2);flex:none;
+}
+@media (prefers-color-scheme:light){:root:not([data-theme=dark]) .theme{background-color:rgba(118,118,128,.12)}}
+:root[data-theme=light] .theme{background-color:rgba(118,118,128,.12)}
+.theme button{
+  width:30px;height:26px;border-radius:6px;display:grid;place-items:center;
+  color:var(--label-2);transition:background-color .18s,color .18s;position:relative;
+}
+/* 視覺維持精巧,觸控區擴到 44pt */
+.theme button::after{content:"";position:absolute;left:50%;top:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
+.theme button svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.theme button.on{background-color:var(--surface);color:var(--label);box-shadow:0 2px 6px rgba(0,0,0,.1)}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .theme button.on{background-color:#636366;box-shadow:none}}
+:root[data-theme=dark] .theme button.on{background-color:#636366;box-shadow:none}
+.theme button:not(.on):hover{color:var(--label)}
 
 /* ─────────────────── grouped list ─────────────────── */
 .gtitle{
@@ -159,7 +194,8 @@ main{max-width:1080px;margin:0 auto;padding:20px 20px calc(48px + env(safe-area-
   padding:8px 12px;font-size:.9375rem;min-width:0;width:100%;
   transition:border-color .18s,background-color .18s;
 }
-@media (prefers-color-scheme:light){.field{background-color:rgba(118,118,128,.09)}}
+@media (prefers-color-scheme:light){:root:not([data-theme=dark]) .field{background-color:rgba(118,118,128,.09)}}
+:root[data-theme=light] .field{background-color:rgba(118,118,128,.09)}
 .field:focus{outline:none;border-color:var(--blue);background-color:var(--surface)}
 .field::placeholder{color:var(--label-3)}
 input[type=date].field{min-width:145px}
@@ -175,7 +211,8 @@ input[type=date].field{min-width:145px}
   display:inline-block;padding:2px 8px;border-radius:6px;font-size:.75rem;font-weight:500;
   background-color:var(--surface-2);color:var(--label-2);
 }
-@media (prefers-color-scheme:light){.tag{background-color:rgba(118,118,128,.12)}}
+@media (prefers-color-scheme:light){:root:not([data-theme=dark]) .tag{background-color:rgba(118,118,128,.12)}}
+:root[data-theme=light] .tag{background-color:rgba(118,118,128,.12)}
 
 /* ─────────────────── responsive table ─────────────────── */
 .tbl{width:100%;border-collapse:collapse;font-size:.9375rem}
@@ -282,6 +319,11 @@ details.add[open]>summary{border-bottom:.5px solid var(--separator)}
   <symbol id="i-report" viewBox="0 0 20 20"><path d="M3 16.5V9.2M7.7 16.5V3.5M12.3 16.5v-5.6M17 16.5V6.8"/></symbol>
   <symbol id="i-devices" viewBox="0 0 20 20"><rect x="3.4" y="2.2" width="13.2" height="15.6" rx="2.4"/><path d="M8.4 15.1h3.2"/></symbol>
   <symbol id="i-merchants" viewBox="0 0 20 20"><path d="M2.6 7.4h14.8v9.2H2.6z"/><path d="M2.2 7.4 4 3.4h12l1.8 4"/><path d="M7.6 16.6v-4.4h4.8v4.4"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 20 20"><circle cx="10" cy="10" r="2.6"/><path d="M10 2.2v2.1M10 15.7v2.1M15.5 4.5l-1.5 1.5M6 14l-1.5 1.5M17.8 10h-2.1M4.3 10H2.2M15.5 15.5 14 14M6 6 4.5 4.5"/></symbol>
+  <!-- 主題切換 -->
+  <symbol id="i-sun" viewBox="0 0 20 20"><circle cx="10" cy="10" r="3.4"/><path d="M10 1.8v1.9M10 16.3v1.9M16 4l-1.4 1.4M5.4 14.6 4 16M18.2 10h-1.9M3.7 10H1.8M16 16l-1.4-1.4M5.4 5.4 4 4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 20 20"><path d="M16.6 12.3A7.2 7.2 0 0 1 7.7 3.4a7.3 7.3 0 1 0 8.9 8.9z"/></symbol>
+  <symbol id="i-auto" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.3"/><path d="M10 2.7a7.3 7.3 0 0 1 0 14.6z" fill="currentColor" stroke="none"/></symbol>
 </svg>
 
 <script>
@@ -332,7 +374,9 @@ function renderLogin(){
     <input id="key" class="field" placeholder="金鑰" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="金鑰">
     <p class="err" id="err" role="alert"></p>
     <button class="btn filled lg" id="go">登入</button>
+    <div style="display:flex;justify-content:center;margin-top:22px">${themeHTML()}</div>
   </div></div>`;
+  bindTheme();
   $('#key').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
   $('#go').onclick = doLogin;
   $('#key').focus();
@@ -362,9 +406,45 @@ function shell(title, sub, body){
         <div class="brand-t">${esc(title)}</div>
         ${sub ? `<div class="brand-s">${esc(sub)}</div>` : ''}
       </div></div>
-      <button class="btn plain" id="out">登出</button>
+      <div style="display:flex;align-items:center;gap:8px;flex:none">
+        ${themeHTML()}
+        <button class="btn plain" id="out">登出</button>
+      </div>
     </div></header><main>${body}</main>`;
 }
+
+/* ─── 主題:淺 / 深 / 跟隨系統(預設)。存 localStorage,套在 <html data-theme> ─── */
+const THEMES = [['light','淺色','i-sun'],['dark','深色','i-moon'],['auto','跟隨系統','i-auto']];
+function currentTheme(){ return localStorage.getItem('ts.theme') || 'auto'; }
+function applyTheme(t){
+  const root = document.documentElement;
+  if (t === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', t);
+  localStorage.setItem('ts.theme', t);
+  // 手機瀏覽器上緣色塊跟著換
+  const dark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme:dark)').matches);
+  document.querySelectorAll('meta[name=theme-color]').forEach(m => m.remove());
+  const m = document.createElement('meta');
+  m.name = 'theme-color'; m.content = dark ? '#000000' : '#F2F2F7';
+  document.head.appendChild(m);
+}
+function themeHTML(){
+  const cur = currentTheme();
+  return `<div class="theme" role="group" aria-label="外觀">
+    ${THEMES.map(([k,label,icon])=>`<button data-theme-set="${k}" class="${cur===k?'on':''}"
+      title="${label}" aria-label="${label}" aria-pressed="${cur===k}"><svg aria-hidden="true"><use href="#${icon}"/></svg></button>`).join('')}
+  </div>`;
+}
+function bindTheme(){
+  document.querySelectorAll('[data-theme-set]').forEach(b => b.onclick = () => {
+    applyTheme(b.dataset.themeSet);
+    document.querySelectorAll('[data-theme-set]').forEach(x => {
+      const on = x.dataset.themeSet === b.dataset.themeSet;
+      x.classList.toggle('on', on); x.setAttribute('aria-pressed', on);
+    });
+    moveInd();
+  });
+}
+applyTheme(currentTheme());
 function moveInd(){
   const seg = $('.seg'); if (!seg) return;
   const on = seg.querySelector('button.on'), ind = seg.querySelector('.seg-ind');
@@ -386,7 +466,7 @@ addEventListener('resize', moveInd);
 
 /* ═══════════════════ 車隊後台 ═══════════════════ */
 let tab = 'live';
-const TABS = [['live','即時'],['report','報表'],['devices','裝置'],['merchants','店家']];
+const TABS = [['live','即時'],['report','報表'],['devices','裝置'],['settings','設定']];
 
 function renderFleet(){
   $('#app').innerHTML = shell(state.fleet.name, '車隊後台', `
@@ -395,11 +475,11 @@ function renderFleet(){
       ${TABS.map(([k,n])=>`<button role="tab" aria-selected="${tab===k}" class="${tab===k?'on':''}" data-tab="${k}">
         <svg aria-hidden="true"><use href="#i-${k}"/></svg>${n}</button>`).join('')}
     </nav><div id="view"><div class="group"><p class="empty">載入中…</p></div></div>`);
-  $('#out').onclick = logout;
+  $('#out').onclick = logout; bindTheme();
   document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; renderFleet(); });
   trackInd();
   clearInterval(timer);
-  ({live:loadLive, report:renderReport, devices:loadDevices, merchants:loadMerchants})[tab]();
+  ({live:loadLive, report:renderReport, devices:loadDevices, settings:loadSettings})[tab]();
   if (tab === 'live') timer = setInterval(() => loadLive(true), 10000);
 }
 
@@ -533,9 +613,10 @@ async function loadDevices(){
   }catch(e){ fail(e); }
 }
 
-async function loadMerchants(){
+async function loadSettings(){
   try{
     const j = await api('fleet-console', {action:'overview', token:state.token});
+    const gid = j.fleet?.line_group_id || '';
     const list = (j.merchants||[]).map(m=>`<div class="row" style="flex-wrap:wrap;gap:10px">
         <div class="row-main" style="flex-basis:100%">
           <div class="row-t" style="font-weight:590;display:flex;align-items:center;gap:8px">${esc(m.name)}
@@ -550,12 +631,50 @@ async function loadMerchants(){
           <button class="btn tinted" data-save="${m.id}">儲存</button>
           <button class="btn ${m.enabled?'danger':'plain'}" data-toggle="${m.id}" data-to="${!m.enabled}">${m.enabled?'停用':'啟用'}</button>
         </div></div>`).join('');
+
     $('#view').innerHTML = `<div class="view">
-      <div class="gtitle">店家設定<span class="aside">結算時間為該店營業日切點</span></div>
-      <div class="group">${list || '<p class="empty">還沒有店家</p>'}</div></div>`;
+      <div class="gtitle">LINE 車板群組<span class="aside">派單訊息會發到這個群</span></div>
+      <div class="group">
+        <div class="row" style="flex-wrap:wrap;gap:10px">
+          <div class="row-main" style="min-width:150px">
+            <div class="row-t">${gid ? '已綁定' : '尚未綁定'}</div>
+            <div class="row-s" id="gStatus">${gid ? '店家按叫車時,派單會發到這個群組' : '綁定前,店家按叫車會送不出去'}</div>
+          </div>
+          <input class="field" id="fgid" value="${esc(gid)}" placeholder="C 開頭的群組 ID"
+            style="max-width:340px;font-family:ui-monospace,monospace;font-size:.875rem" aria-label="LINE 群組 ID" spellcheck="false">
+          <div class="row-actions"><button class="btn tinted" id="fgSave">儲存</button></div>
+        </div>
+        <div class="row" style="align-items:flex-start">
+          <div class="row-main">
+            <div class="row-t">怎麼拿到群組 ID?</div>
+            <div class="row-s" style="line-height:1.7">
+              1. 把「TripStore 店家派單」加為好友,再邀請進你們的車板群組<br>
+              2. 在群組裡輸入 <b>/id</b><br>
+              3. bot 會回一組 C 開頭的 ID,貼到上面欄位按儲存
+            </div></div></div>
+      </div>
+      <div class="gtitle">店家<span class="aside">結算時間為該店營業日切點</span></div>
+      <div class="group">${list || '<p class="empty">還沒有店家。請聯絡我們開通。</p>'}</div></div>`;
+
+    $('#fgSave').onclick = saveLineGroup;
     document.querySelectorAll('[data-save]').forEach(b=>b.onclick=()=>saveMerchant(b.dataset.save,b));
     document.querySelectorAll('[data-toggle]').forEach(b=>b.onclick=()=>toggleMerchant(b.dataset.toggle,b.dataset.to==='true'));
   }catch(e){ fail(e); }
+}
+async function saveLineGroup(){
+  const btn = $('#fgSave'), val = $('#fgid').value.trim();
+  btn.disabled = true; btn.textContent = '儲存中…';
+  try{
+    await api('fleet-console', {action:'update_line_group', token:state.token, groupId:val});
+    btn.textContent = '已儲存'; setTimeout(loadSettings, 700);
+  }catch(e){
+    btn.disabled = false; btn.textContent = '儲存';
+    const msg = e.message === 'BAD_FORMAT' ? '格式不對。群組 ID 是 C 開頭的 33 碼,請直接複製 bot 回覆的那一串。'
+      : e.message === 'ALREADY_BOUND' ? '這個群組已經綁給別的車隊了。請確認是不是複製到別的群。'
+      : '儲存失敗:' + e.message;
+    $('#gStatus').textContent = msg;
+    $('#gStatus').style.color = 'var(--red)';
+  }
 }
 async function saveMerchant(id, btn){
   const t = btn.textContent; btn.disabled = true; btn.textContent = '儲存中…';
@@ -577,7 +696,7 @@ function fail(e){ if(e.message!=='登入逾期') $('#view').innerHTML = `<div cl
 function renderAdmin(){
   clearInterval(timer);
   $('#app').innerHTML = shell('平台管理', 'TripStore', '<div id="view"><div class="group"><p class="empty">載入中…</p></div></div>');
-  $('#out').onclick = logout;
+  $('#out').onclick = logout; bindTheme();
   loadAdmin();
 }
 const adminApi = body => api('platform-admin', {...body, key:state.key});
@@ -614,10 +733,11 @@ async function loadAdmin(){
             <button class="btn ${f.enabled?'danger':'plain'}" data-ft="${f.id}" data-to="${!f.enabled}">${f.enabled?'停用':'啟用'}</button>
           </div></div>
         <div class="group">
-          <div class="row">
+          <div class="row" style="flex-wrap:wrap;gap:10px">
             <div class="row-main" style="min-width:150px"><div class="row-t">LINE 車板群組</div>
-              <div class="row-s">${f.line_group_id ? '已綁定' : '在群裡打 /id 取得群組 ID'}</div></div>
-            <input class="field" id="fg-${f.id}" value="${esc(f.line_group_id||'')}" placeholder="C…" style="max-width:300px" aria-label="LINE 群組 ID">
+              <div class="row-s">${f.line_group_id ? '已綁定' : '未綁定'}・車隊可自行在後台綁,這裡是代為協助用</div></div>
+            <input class="field" id="fg-${f.id}" value="${esc(f.line_group_id||'')}" placeholder="C…" aria-label="LINE 群組 ID"
+              style="max-width:300px;font-family:ui-monospace,monospace;font-size:.8125rem" spellcheck="false">
             <button class="btn tinted" data-fg="${f.id}">存</button>
           </div>
           <div class="row"><div class="row-main"><div class="row-t">客服電話</div></div>
