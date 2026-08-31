@@ -667,10 +667,44 @@ async function loadSettings(){
               <b>個人接收</b>:和 bot 的 1:1 聊天輸入 <b>/id</b> → 複製 U 開頭 ID
             </div></div></div>
       </div>
+      <div class="gtitle">指令別名<span class="aside">內建詞之外,你們群組習慣講的話</span></div>
+      <div class="group">
+        <div class="row" style="flex-wrap:wrap;gap:10px">
+          <div class="row-main" style="min-width:130px"><div class="row-t">車到了</div>
+            <div class="row-s">內建:到了、到、到囉、已到</div></div>
+          <input class="field" id="alArrived" placeholder="自訂,逗號分隔(例:到店)" style="max-width:280px"
+            value="${esc((j.fleet?.cmd_aliases?.arrived||[]).join('、'))}" aria-label="車到了別名">
+        </div>
+        <div class="row" style="flex-wrap:wrap;gap:10px">
+          <div class="row-main" style="min-width:130px"><div class="row-t">完成</div>
+            <div class="row-s">內建:完成、好、好了、OK</div></div>
+          <input class="field" id="alComplete" placeholder="自訂(例:結案)" style="max-width:280px"
+            value="${esc((j.fleet?.cmd_aliases?.complete||[]).join('、'))}" aria-label="完成別名">
+        </div>
+        <div class="row" style="flex-wrap:wrap;gap:10px">
+          <div class="row-main" style="min-width:130px"><div class="row-t">無車</div>
+            <div class="row-s">內建:無車、沒車、派不出</div></div>
+          <input class="field" id="alNoCar" placeholder="自訂(例:沒空)" style="max-width:280px"
+            value="${esc((j.fleet?.cmd_aliases?.no_car||[]).join('、'))}" aria-label="無車別名">
+        </div>
+        <div class="row"><div class="row-main">
+          <div class="row-s">每類最多 5 個、每個最多 6 個字。整句完全等於這個詞才會觸發,不會誤抓聊天。</div></div>
+          <div class="row-actions"><button class="btn tinted" id="alSave">儲存</button></div>
+        </div>
+      </div>
       <div class="gtitle">店家<span class="aside">結算時間為該店營業日切點</span></div>
       <div class="group">${list || '<p class="empty">還沒有店家。請聯絡我們開通。</p>'}</div></div>`;
 
     $('#rSave').onclick = saveRecipient;
+  $('#alSave').onclick = async () => {
+    const btn = $('#alSave'); btn.disabled = true; btn.textContent = '儲存中…';
+    const split = v => v.split(/[,，、\s]+/).map(x=>x.trim()).filter(Boolean);
+    try{
+      await api('fleet-console', {action:'update_aliases', token:state.token, aliases:{
+        arrived: split($('#alArrived').value), complete: split($('#alComplete').value), no_car: split($('#alNoCar').value) }});
+      btn.textContent = '已儲存'; setTimeout(()=>{ btn.disabled=false; btn.textContent='儲存'; }, 900);
+    }catch(e){ btn.disabled=false; btn.textContent='儲存'; alert('儲存失敗:'+e.message); }
+  };
     document.querySelectorAll('[data-save]').forEach(b=>b.onclick=()=>saveMerchant(b.dataset.save,b));
     document.querySelectorAll('[data-toggle]').forEach(b=>b.onclick=()=>toggleMerchant(b.dataset.toggle,b.dataset.to==='true'));
   }catch(e){ fail(e); }
