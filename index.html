@@ -780,7 +780,7 @@ async function loadAdmin(){
       return `<div class="fleet-h">
           <h2>${esc(f.name)} <span class="id">${esc(f.id)}</span>${f.enabled?'':'<span class="tag">已停用</span>'}</h2>
           <div class="row-actions">
-            <button class="btn tinted" data-fk="${f.id}" data-n="${esc(f.name)}">${f.hasConsoleKey?'重發':'發'}車隊金鑰</button>
+            <button class="btn tinted" data-fk="${f.id}" data-n="${esc(f.name)}">${f.hasConsoleKey?'重發':'發'}車隊後台密碼</button>
             <button class="btn ${f.enabled?'danger':'plain'}" data-ft="${f.id}" data-to="${!f.enabled}">${f.enabled?'停用':'啟用'}</button>
             ${f.enabled?'':`<button class="btn danger" data-fdel="${f.id}" data-n="${esc(f.name)}">刪除</button>`}
           </div></div>
@@ -823,7 +823,7 @@ async function loadAdmin(){
           <input class="field" id="nf-name" placeholder="車隊名稱">
           <input class="field" id="nf-phone" placeholder="客服電話">
           <div class="full"><button class="btn filled" id="nf-go">建立車隊</button>
-            <p class="row-s" style="margin-top:10px">建好後按「發車隊金鑰」給車隊,車隊登入後台即可自行綁定 LINE 群組。</p></div>
+            <p class="row-s" style="margin-top:10px">建好後按「發車隊後台密碼」給車隊,車隊登入後台即可自行綁定 LINE 群組。</p></div>
         </div></details></div></div>`);
     bindAdmin();
   }catch(e){ if(e.message!=='登入逾期') $('#view').innerHTML = `<div class="group"><p class="empty">載入失敗:${esc(e.message)}</p></div>`; }
@@ -843,7 +843,7 @@ function bindAdmin(){
 async function issueFleetKey(id, name){
   if (!confirm(`發新的車隊金鑰給「${name}」?\n\n舊金鑰立刻失效,已登入的網頁會被登出。`)) return;
   const j = await adminApi({action:'issue_fleet_key', fleetId:id});
-  showKey(name + ' 車隊金鑰', j.key, '給車隊登入這個網頁用。只顯示這一次,關掉就看不到了。');
+  showKey(name + ' 車隊後台密碼', j.key, '給車隊登入這個網頁用。只顯示這一次,關掉就看不到了。');
   loadAdmin();
 }
 async function issueDeviceKey(id, name){
